@@ -1,0 +1,12 @@
+# .roo/config.yml
+logging:
+  level: DEBUG
+  json_validation: true
+  error_dir: logs/validation_errors
+
+processing:
+  response_sanitization:
+    enabled: true
+    replacements:
+      - ["\n", "\\n"]
+      - ["\t", "\\t"]
