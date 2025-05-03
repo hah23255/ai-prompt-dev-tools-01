@@ -1,20 +1,4 @@
-# Ticket: Define Overall System Architecture
-
-## Goal:
-Establish a modular, multi-agent architecture using CrewAI to clearly define responsibilities among components (orchestrator, specialized agents) and set up robust data flows.
-
-## Description:
-Create comprehensive diagrams and documentation that outline the system’s core modules—including the User Interface, Orchestration Layer, and Specialized Agents—and their interactions.
-
-## Background:
-Based on both the deep research document and product requirements emphasizing a modular design using CrewAI for orchestration.
-
-## Acceptance Criteria:
-- A complete architecture diagram is produced showing all key components and data flows.
-- Documentation details responsibilities of each module.
-
-## Suggestions:
-Consider using UML or flow diagrams (e.g., Lucidchart, draw.io) for clarity.
+## Overall System Architecture
 
 ## Detailed Plan:
 
@@ -73,7 +57,56 @@ graph TD;
 ### Acceptance Criteria
 - A complete architecture diagram is produced showing all key components and data flows.
 - Documentation details responsibilities of each module.
-## Task Completion
+## Core Components
 
-- Implemented defined system architecture as outlined in project_journal/tickets/epic1_1.md.
-- Documented complete database schema and migrations in architecture_plan.md.
+### User Interface Layer
+- **Responsibilities**:
+  - Accepts user input.
+  - Provides a dashboard for submitting prompts and monitoring processing steps.
+
+### Orchestration Layer (CrewAI)
+- **Responsibilities**:
+  - Coordinates the overall workflow by dispatching tasks to specialized agents.
+  - Manages error handling, logging, and communication between modules.
+
+### Specialized Agents
+- **Topic Analysis Agent**
+  - **Responsibilities**: Identifies the core subject matter of a prompt.
+  
+- **Category Breakdown Agent**
+  - **Responsibilities**: Divides the prompt into logical sections.
+
+- **Iterative Refinement Agent**
+  - **Responsibilities**: Enhances details at each stage using available research inputs.
+
+- **Research Integration Agent**
+  - **Responsibilities**: Incorporates external data (web, documentation, research papers) to augment technical depth and return the final output document.
+## Data Flows
+
+1. **User submits an initial prompt through the web interface**.
+2. The Orchestration Layer receives the prompt and dispatches it to the **Topic Analysis Agent**.
+3. The **Topic Analysis Agent** identifies the core subject matter and forwards it to the **Category Breakdown Agent**.
+4. The **Category Breakdown Agent** divides the prompt into logical sections and forwards them to the **Iterative Refinement Agent**.
+5. The **Iterative Refinement Agent** enhances details at each stage using available research inputs and forwards the refined data to the **Research Integration Agent**.
+6. The **Research Integration Agent** incorporates external data (web, documentation, research papers) to augment technical depth and returns the final output document.
+
+## Communication Protocols
+
+- Specialized agents will exchange data via well-defined interfaces.
+- Each agent will validate inputs using Pydantic schemas.
+## Integration with External Research Tools
+
+- The system may integrate with web search tools, documentation browsers, and research paper repositories to refine outputs iteratively.
+## Basic Web UI Prototype
+
+- Create a simple web interface that allows users to submit prompts and view both intermediate agent outputs (for transparency) and the final enhanced document.
+## Implement Prompt Submission Endpoint
+
+- Develop an endpoint in the web interface that accepts user input and forwards it to the Orchestration Layer.
+## Display Intermediate Agent Outputs in the UI
+
+- Ensure the web interface displays intermediate processing stages as well as the final output.
+## Finalize the Web UI Prototype
+
+- Test the web interface to ensure it meets usability and performance standards.
+- Deploy the prototype for user feedback.
