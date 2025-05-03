@@ -1,4 +1,4 @@
-venv/
+venv/*
 .vscode/
 *.py[cod]
 *$py.class
@@ -6,4 +6,4 @@ venv/
 *.log
 .DS_Store
 Thumbs.db
-.roo/
+.roo/*
