@@ -45,7 +45,8 @@ class TopicAnalysisAgent:
                 core_topics=analysis_data["core_topics"],
                 domain_classification=analysis_data["domain_classification"],
                 complexity_level=analysis_data["complexity_level"],
-                key_entities=analysis_data["key_entities"]
+                key_entities=analysis_data["key_entities"],
+                timestamp=datetime.now()
             )
         except json.JSONDecodeError:
             # Handle invalid JSON response
@@ -55,5 +56,6 @@ class TopicAnalysisAgent:
                 core_topics=["error"],
                 domain_classification="unknown",
                 complexity_level=1,
-                key_entities=[]
+                key_entities=[],
+                timestamp=datetime.now()
             )

@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 class LMStudioService:
     """Service for interacting with LMStudio local LLM"""
     
-    def __init__(self, model_name: str = "llama-3-8b-instruct", api_base: str = "http://localhost:1234"):
+    def __init__(self, model_name: str = "qwen3-1.7b", api_base: str = "http://localhost:1234"):
         self.api_base = api_base
         self.model_name = model_name
         self.ensure_model_loaded()

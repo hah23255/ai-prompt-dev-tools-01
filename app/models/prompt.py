@@ -25,3 +25,8 @@ class IterativeRefinementResult(BaseResponse):
     """Result from Iterative Refinement Agent"""
     refined_prompt: str
     refinement_details: str
+
+class ResearchIntegrationResult(BaseResponse):
+    """Result from Research Integration Agent"""
+    research_data: str
+    integration_details: str

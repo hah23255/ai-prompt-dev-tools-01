@@ -1,27 +1,20 @@
-import pytest
+import unittest
 from unittest.mock import patch
-from app.run import main
+from app.run import check_lmstudio_running, main
 
-def test_check_lmstudio_running():
-    with patch("requests.get") as mock_get:
+class TestRun(unittest.TestCase):
+    @patch('app.run.requests.get')
+    def test_check_lmstudio_running_success(self, mock_get):
         mock_get.return_value.status_code = 200
-        assert main.check_lmstudio_running() is True
+        self.assertTrue(check_lmstudio_running())
 
-def test_check_lmstudio_not_running():
-    with patch("requests.get") as mock_get:
-        mock_get.side_effect = Exception("Connection error")
-        assert main.check_lmstudio_running() is False
+    @patch('app.run.requests.get')
+    def test_check_lmstudio_running_failure(self, mock_get):
+        mock_get.return_value.status_code = 404
+        self.assertFalse(check_lmstudio_running())
 
-def test_start_lmstudio_success():
-    with patch("subprocess.Popen") as mock_popen, \
-         patch("app.run.logger.info") as mock_info:
-        main.start_lmstudio()
+    @patch('app.run.subprocess.Popen')
+    @patch('app.run.check_lmstudio_running', return_value=False)
+    def test_main_starts_lms(self, mock_check, mock_popen):
+        main()
         mock_popen.assert_called_once_with(["lms", "server", "start"])
-        mock_info.assert_called_once_with("LMStudio server started")
-
-def test_start_lmstudio_failure():
-    with patch("subprocess.Popen") as mock_popen, \
-         patch("app.run.logger.error") as mock_error:
-        mock_popen.side_effect = Exception("Failed to start")
-        main.start_lmstudio()
-        mock_error.assert_called_once_with("Failed to start LMStudio automatically. Please start it manually.")

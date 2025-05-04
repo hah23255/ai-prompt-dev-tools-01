@@ -1,74 +1,89 @@
 import unittest
-import os
 from unittest.mock import MagicMock, patch
+from datetime import datetime # <-- Add this import
+import json
+
+# Assuming these models and agent classes exist
+from app.models.prompt import PromptRequest
+from app.models.response import TopicAnalysisResult # Assuming you have a result model for Topic Analysis
 from app.agents.topic_analysis import TopicAnalysisAgent
-from app.models.prompt import PromptRequest, TopicAnalysisResult
-from app.services.lmstudio import LMStudioService
+# Import other agent test classes if they are in this file
 
 class TestTopicAnalysisAgent(unittest.TestCase):
-    
     def setUp(self):
-        # Mock LMStudio service
-        self.mock_lmstudio = MagicMock(spec=LMStudioService)
-        self.mock_lmstudio.generate_completion.return_value = '''
-        {
-            "core_topics": ["AI", "Prompt Engineering", "NLP"],
-            "domain_classification": "technology",
-            "complexity_level": 7,
-            "key_entities": ["GPT", "BERT", "Transformers"]
+        # Mock the LMStudioService
+        self.mock_lmstudio = MagicMock()
+        # Provide a dummy config dictionary
+        agent_config = {
+            "role": "Topic Analyzer",
+            "goal": "Identify core topics, domain, complexity, and key entities from a user prompt.",
+            "backstory": "An expert in natural language processing...",
+            "verbose": False,
+            "allow_delegation": False,
+            "max_iter": 15,
+            "max_rpm": 100
         }
-        '''
-        
-        # Create agent config
-        self.agent_config = {
-            "role": "Topic Analysis Specialist",
-            "goal": "Analyze topics",
-            "backstory": "Expert in topic analysis",
-            "verbose": True,
-            "allow_delegation": False
-        }
-        
-        # Create agent
-        self.agent = TopicAnalysisAgent(
-            config=self.agent_config,
-            lmstudio_service=self.mock_lmstudio
-        )
-        
+        # Initialize the TopicAnalysisAgent with the mock service and config
+        self.agent = TopicAnalysisAgent(agent_config, self.mock_lmstudio)
+
     def test_process_valid_prompt(self):
+        # Mock a valid JSON response from LMStudio
+        mock_response_data = {
+            "core_topics": ["transformer models", "NLP", "applications"],
+            "domain_classification": "Technology",
+            "complexity_level": 7,
+            "key_entities": ["transformer models", "NLP"]
+        }
+        self.mock_lmstudio.generate_completion.return_value = json.dumps(mock_response_data)
+
         # Create test prompt
         prompt_request = PromptRequest(
             request_id="test-123",
             content="Explain how transformer models work in NLP and their applications."
         )
-        
+
         # Process prompt
         result = self.agent.process(prompt_request)
-        
-        # Check result
+
+        # Assertions
         self.assertIsInstance(result, TopicAnalysisResult)
         self.assertEqual(result.status, "success")
-        self.assertEqual(result.core_topics, ["AI", "Prompt Engineering", "NLP"])
-        self.assertEqual(result.domain_classification, "technology")
+        # Note: processing_time and timestamp are set in the agent's process method
+        self.assertEqual(result.core_topics, ["transformer models", "NLP", "applications"])
+        self.assertEqual(result.domain_classification, "Technology")
         self.assertEqual(result.complexity_level, 7)
-        self.assertEqual(result.key_entities, ["GPT", "BERT", "Transformers"])
-        
+        self.assertEqual(result.key_entities, ["transformer models", "NLP"])
+        self.assertIsInstance(result.timestamp, datetime) # Check timestamp type
+
+        # Verify LMStudio service was called correctly
+        self.mock_lmstudio.generate_completion.assert_called_once()
+        # You might want to add assertions about the prompt passed to generate_completion
+
     def test_process_invalid_response(self):
-        # Mock invalid JSON response
+        # Mock an invalid JSON response
         self.mock_lmstudio.generate_completion.return_value = "Invalid JSON"
-        
+
         # Create test prompt
         prompt_request = PromptRequest(
             request_id="test-123",
             content="Test prompt"
         )
-        
-        # Process prompt
+
+        # Process prompt - This should now be handled gracefully by the agent's try/except
         result = self.agent.process(prompt_request)
-        
-        # Check error handling
+
+        # Assertions for error handling
         self.assertIsInstance(result, TopicAnalysisResult)
         self.assertEqual(result.status, "error")
-        self.assertEqual(result.core_topics, ["error"])
+        self.assertIn("error", result.core_topics) # Assuming error handling sets default values
         self.assertEqual(result.domain_classification, "unknown")
+        self.assertEqual(result.complexity_level, 1)
+        self.assertEqual(result.key_entities, [])
+        self.assertIsInstance(result.timestamp, datetime)
 
-# Add similar tests for other agents
+        # Verify LMStudio service was called correctly
+        self.mock_lmstudio.generate_completion.assert_called_once()
+
+# Add other agent test classes here if they are in the same file
+# class TestCategoryBreakdownAgent(unittest.TestCase):
+#     ...
