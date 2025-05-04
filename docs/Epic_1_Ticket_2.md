@@ -27,6 +27,13 @@ Below is a detailed implementation plan for Ticket 2 (“Implement Orchestration
 ──────────────────────────────
 3. Define Data Schemas with Pydantic
 ──────────────────────────────
+```python
+class Input(BaseModel):
+    prompt: str
+
+class Output(BaseModel):
+    response: str
+```
 • Create Pydantic models for:
  – User prompt input data.
  – Intermediate outputs exchanged between agents.
@@ -63,6 +70,20 @@ Below is a detailed implementation plan for Ticket 2 (“Implement Orchestration
  – Use custom exceptions for invalid data or failed agent interactions.
  – Log errors centrally so that debugging is straightforward.
 
+```python
+app = FastAPI()
+client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+
+@app.post("/generate", response_model=Output)
+async def generate(data: Input):
+    resp = client.chat.completions.create(
+        model="llama-3.2-1b-instruct",
+        messages=[{"role": "user", "content": data.prompt}],
+        temperature=0.7,
+        stream=False,
+    )
+    return Output(response=resp.choices[0].message.content)
+```
 ──────────────────────────────
 6. API Endpoints Development (Using FastAPI/Flask)
 ──────────────────────────────

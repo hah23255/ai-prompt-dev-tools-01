@@ -6,3 +6,4 @@
 [2025-05-03 19:31:14] - Created high-level design document based on contents of `docs/Epics.md`, `docs/Inital_Concept.md`, and `docs/Product_Requirements.md`.
 [2025-05-03 19:48:50] - Significant architectural decision made: High-level design document has been updated based on `Epics.md`, `Inital_Concept.md`, and `Product_Requirements.md`.
 [2025-05-03 09:39:15] - User requested an update to the Memory Bank (UMB).
+[2025-05-04 12:33:14] - Added FastAPI application setup and endpoint definitions to `docs/Epic_1_Ticket_2.md`.

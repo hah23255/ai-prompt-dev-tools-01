@@ -18,3 +18,4 @@
 The user can now install these packages using pip by running the command:
 $ pip install -r requirements.txt
 [2025-05-04 11:32:55] Created requirements.txt with packages
+[2025-05-04 12:35:52] - Added FastAPI application setup and endpoint definitions to `docs/Epic_1_Ticket_2.md`.
