@@ -24,7 +24,6 @@ from app.models.prompt import PromptRequest
 # Define the path to the configuration directory
 # This path should now be relative to the crew.py file itself
 # and point to the config directory *within* app/orchestrator/
-# Updated CONFIG_DIR to be relative to the current file's directory
 CONFIG_DIR = Path(__file__).parent / "config"
 print(f"CONFIG_DIR: {CONFIG_DIR}") # Print the actual path being used
 
@@ -51,11 +50,6 @@ class PromptEnhancerCrew:
             with open(config_path, "r") as f:
                 return yaml.safe_load(f)
         except FileNotFoundError:
-            # Log a warning instead of raising an error here, as CrewBase
-            # might handle missing files differently or you might want
-            # to proceed with defaults if the files are optional.
-            # However, given the previous error, these files are expected.
-            # Re-raising is probably correct if they are mandatory.
             logger.error(f"Configuration file not found: {config_path}")
             raise # Re-raise the exception
         except yaml.YAMLError as e:
@@ -92,7 +86,9 @@ class PromptEnhancerCrew:
             self.lmstudio_service, # Pass the LMStudio service instance
             self.litellm_llm # Pass the configured LiteLLM instance (the wrapper)
         )
-        return custom_agent_wrapper.agent
+        # The custom_agent_wrapper instance holds the CrewAI Agent AND the tool
+        return custom_agent_wrapper.agent # Return the CrewAI Agent instance
+
 
     @agent
     def category_breakdown(self) -> Agent: # Renamed from category_breakdown_agent
@@ -136,14 +132,17 @@ class PromptEnhancerCrew:
         """Creates and returns the Topic Analysis Task"""
         tasks_config = self._load_config("tasks")
         task_config = tasks_config.get("topic_analysis_task", {})
+        # Get the agent instance to access its tools
+        topic_analysis_agent_instance = self.topic_analysis() # Call the agent method
+
         return Task(
-            description=task_config.get("description", "Default topic analysis description."), # <-- Pass description directly
-            expected_output=task_config.get("expected_output", "A JSON object containing core topics, domain, complexity, and key entities."), # <-- Pass expected_output directly
-            agent=self.topic_analysis(), # Reference the RENAMED agent method
-            # Pass other config items if needed, e.g., context, tools
-            # context=[...],
-            # tools=[...],
-            # async_execution=task_config.get("async_execution", False)
+            description=task_config.get("description", "Default topic analysis description."),
+            expected_output=task_config.get("expected_output", "A JSON object containing core topics, domain, complexity, and key entities."),
+            agent=topic_analysis_agent_instance, # Assign the agent instance
+            tools=[topic_analysis_agent_instance.tools[0]], # Add the tool to the task's tools list
+            # The task description in tasks.yaml MUST now instruct the agent to use this tool
+            # e.g., "Use the 'Topic Analysis Tool' to analyze the input prompt: {prompt}"
+            # Ensure the description also includes {prompt} if it's used.
         )
 
     @task
@@ -151,11 +150,15 @@ class PromptEnhancerCrew:
         """Creates and returns the Category Breakdown Task"""
         tasks_config = self._load_config("tasks")
         task_config = tasks_config.get("category_breakdown_task", {})
+        category_breakdown_agent_instance = self.category_breakdown()
         return Task(
-            description=task_config.get("description", "Default category breakdown description."), # <-- Pass description directly
-            expected_output=task_config.get("expected_output", "A list of categories or sub-topics identified in the prompt."), # <-- Pass expected_output directly
-            agent=self.category_breakdown(), # Reference the RENAMED agent method
-            # Pass other config items if needed
+            description=task_config.get("description", "Default category breakdown description."),
+            expected_output=task_config.get("expected_output", "A list of categories or sub-topics identified in the prompt."),
+            agent=category_breakdown_agent_instance,
+            # Add tool(s) for this task if the CategoryBreakdownAgent has one
+            # tools=[category_breakdown_agent_instance.tools[0]], # Example
+            context=[self.topic_analysis_task()], # This task likely needs context from the previous one
+            # Ensure the description in tasks.yaml uses {output of topic_analysis_task} and {prompt}
         )
 
     @task
@@ -163,14 +166,15 @@ class PromptEnhancerCrew:
         """Creates and returns the Iterative Refinement Task"""
         tasks_config = self._load_config("tasks")
         task_config = tasks_config.get("iterative_refinement_task", {})
+        iterative_refinement_agent_instance = self.iterative_refinement()
         return Task(
-            description=task_config.get("description", "Default iterative refinement description."), # <-- Pass description directly
-            expected_output=task_config.get("expected_output", "A refined version of the original prompt."), # <-- Pass expected_output directly
-            agent=self.iterative_refinement(), # Reference the RENAMED agent method
-            # Pass other config items if needed
-            # context=[self.topic_analysis_task(), self.category_breakdown_task()] # Example: Pass previous tasks as context
-            # tools=[...],
-            # async_execution=task_config.get("async_execution", False)
+            description=task_config.get("description", "Default iterative refinement description."),
+            expected_output=task_config.get("expected_output", "A refined version of the original prompt."),
+            agent=iterative_refinement_agent_instance,
+            # Add tool(s) for this task if the IterativeRefinementAgent has one
+            # tools=[iterative_refinement_agent_instance.tools[0]], # Example
+            context=[self.topic_analysis_task(), self.category_breakdown_task()], # Needs context
+            # Ensure the description in tasks.yaml uses {output of topic_analysis_task}, {output of category_breakdown_task}, and {prompt}
         )
 
     @task
@@ -178,13 +182,15 @@ class PromptEnhancerCrew:
         """Creates and returns the Research Integration Agent"""
         tasks_config = self._load_config("tasks")
         task_config = tasks_config.get("research_integration_task", {})
+        research_integration_agent_instance = self.research_integration()
         return Task(
-            description=task_config.get("description", "Default research integration description."), # <-- Pass description directly
-            expected_output=task_config.get("expected_output", "The refined prompt with relevant research findings integrated."), # <-- Pass expected_output directly
-            agent=self.research_integration(), # Reference the RENAMED agent method
-            # Pass other config items if needed
-            # context=[self.iterative_refinement_task()] # Example: Pass previous task as context
-            # tools=[self.research_tool()] # Example: If you have a research tool method
+            description=task_config.get("description", "Default research integration description."),
+            expected_output=task_config.get("expected_output", "The refined prompt with relevant research findings integrated."),
+            agent=research_integration_agent_instance,
+            # Add tool(s) for this task if the ResearchIntegrationAgent has one
+            # tools=[self.research_tool()], # Example: If you have a research tool method
+            context=[self.iterative_refinement_task()], # Needs context
+            # Ensure the description in tasks.yaml uses {output of iterative_refinement_task}, {prompt}, and {context}
         )
 
 
@@ -201,7 +207,7 @@ class PromptEnhancerCrew:
 
         return Crew(
             agents=[
-                self.topic_analysis(), # Call the RENAMED agent methods to get agent instances
+                self.topic_analysis(), # Call the agent methods to get agent instances
                 self.category_breakdown(),
                 self.iterative_refinement(),
                 self.research_integration()
@@ -220,46 +226,37 @@ class PromptEnhancerCrew:
             crew = self.get_crew()
             logger.info("Crew initialized.")
 
-            # Execute the crew with the prompt
-            logger.info(f"Kicking off crew with prompt: {prompt_request.content[:50]}...") # Log snippet
-            # CrewAI's kickoff returns the final result of the last task by default.
-            # If you need results from intermediate tasks, you might need to modify
-            # your tasks to store results or use a different CrewAI process.
-            crew_output = crew.kickoff(inputs={"prompt": prompt_request.content})
+            # Execute the crew with the prompt and context
+            logger.info(f"Kicking off crew with prompt: {prompt_request.content[:50]}... and context: {prompt_request.context}") # Log snippet
+            # Include the context from the prompt_request in the inputs dictionary
+            crew_output = crew.kickoff(inputs={"prompt": prompt_request.content, "context": prompt_request.context})
             logger.info("Crew execution finished successfully.")
 
-            # Extract the final result string from the CrewOutput object
-            # Assuming the final result is available as a string attribute, e.g., .result or similar
-            # You might need to inspect the actual CrewOutput object structure if this is incorrect
-            # CrewAI kickoff returns a string or the result of the last task depending on version/config
-            # Let's assume it's the final output string for now.
+            # The kickoff result is typically the output of the last task.
+            # Assuming the last task (research_integration_task) produces the final enhanced prompt string.
             enhanced_prompt_result = str(crew_output) # Convert to string for serialization
 
             # Accessing intermediate results requires agents/tasks to store them
             # and expose them in a way that can be retrieved after kickoff.
-            # Placeholder details are used for demonstration.
-            # In a real scenario, you would collect results from your agent wrapper instances
-            # after the crew has run, assuming they store their results.
+            # For now, these details are placeholders.
             processing_details = {
-                 "topic_analysis": "Details not available directly from this structure.",
-                 "category_breakdown": "Details not available directly from this structure.",
-                 "iterative_refinement": "Details not available directly from this structure.",
-                 "research_integration": "Details not available directly from this structure."
+                 "topic_analysis": "Details not captured in this structure.",
+                 "category_breakdown": "Details not captured in this structure.",
+                 "iterative_refinement": "Details not captured in this structure.",
+                 "research_integration": "Details not captured in this structure."
             }
 
             # Return the successful result
             return {
-                "status": "complete", # Change status to 'complete' on successful execution
+                "status": "complete",
                 "enhanced_prompt": enhanced_prompt_result,
                 "processing_details": processing_details # Placeholder details
             }
         except ValidationError as e:
-            # Catch Pydantic Validation errors specifically and return 400
             logger.error(f"Validation Error during prompt enhancement: {e}", exc_info=True)
-            # Re-raise as HTTPException for FastAPI to handle with 400 status
             from fastapi import HTTPException
             raise HTTPException(status_code=400, detail=f"Validation error during crew setup or execution: {e}")
         except Exception as e:
-            logger.error(f"Error during prompt enhancement: {e}", exc_info=True) # Log the exception details
-            # Re-raise the exception so it's caught by the FastAPI endpoint's general handler
-            raise e
+            logger.error(f"Error during prompt enhancement: {e}", exc_info=True)
+            raise e # Re-raise the exception for the FastAPI endpoint to handle
+

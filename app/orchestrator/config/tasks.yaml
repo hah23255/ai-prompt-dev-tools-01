@@ -1,13 +1,41 @@
-# Topic Analysis Task
+# Example tasks.yaml in app/orchestrator/config/
+
 topic_analysis_task:
-  description: "Analyze the input prompt to identify core topics, domain, complexity, and key entities"
-  expected_output: "A structured analysis of the prompt's core elements"
+  description: |
+    Use the 'Topic Analysis Tool' to analyze the input prompt.
+    The tool input is the original prompt: {prompt}
+    Your final answer MUST be the JSON output provided by the 'Topic Analysis Tool'.
+  expected_output: "A JSON object containing core topics, domain, complexity, and key entities."
   agent: "topic_analysis"
-  
-# Category Breakdown Task
+
 category_breakdown_task:
-  description: "Break down the analyzed prompt into logical sections and categories"
-  expected_output: "A structured breakdown of the prompt into categories for enhancement"
+  description: |
+    Use the 'Category Breakdown Tool' to break down the original prompt into categories.
+    The tool input MUST be formatted exactly as:
+    Prompt: {prompt}
+    Topic Analysis: {output of topic_analysis_task}
+    Your final answer MUST be the JSON array of strings provided by the 'Category Breakdown Tool'.
+  expected_output: "A JSON array of strings, where each string is a identified category or sub-topic."
   agent: "category_breakdown"
-  
-# Similar configurations for other tasks
+
+iterative_refinement_task:
+  description: |
+    Use the 'Iterative Refinement Tool' to refine the original prompt.
+    The tool input MUST be formatted exactly as:
+    Prompt: {prompt}
+    Topic Analysis: {output of topic_analysis_task}
+    Category Breakdown: {output of category_breakdown_task}
+    Your final answer MUST be the refined prompt string provided by the 'Iterative Refinement Tool'.
+  expected_output: "A significantly improved and more detailed version of the original prompt."
+  agent: "iterative_refinement"
+
+research_integration_task:
+  description: |
+    Use the 'Research Integration Tool' to integrate findings and context into the refined prompt.
+    The tool input MUST be formatted exactly as:
+    Refined Prompt: {output of iterative_refinement_task}
+    Original Prompt: {prompt}
+    Additional Context: {context}
+    Your final answer MUST be the final enhanced prompt string provided by the 'Research Integration Tool'.
+  expected_output: "The final, enhanced prompt incorporating research findings and all previous refinements."
+  agent: "research_integration"

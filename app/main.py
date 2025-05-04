@@ -54,12 +54,13 @@ async def enhance_prompt(prompt_data: Dict[str, Any]):
             content=prompt_data.get("prompt", ""),
             context=prompt_data.get("context", {})
         )
-        
+
         # Process the prompt using CrewAI
         start_time = time.time()
+        # The enhance_prompt method in crew.py now calls crew.kickoff
         result = prompt_enhancer.enhance_prompt(prompt_request)
         processing_time = time.time() - start_time
-        
+
         # Return the enhanced prompt
         return {
             "request_id": request_id,
@@ -74,6 +75,8 @@ async def enhance_prompt(prompt_data: Dict[str, Any]):
             content={"status": "error", "message": "Invalid request data", "details": str(e)}
         )
     except Exception as e:
+        # Log the error before returning
+        logging.error(f"Error during prompt enhancement via HTTP: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={"status": "error", "message": "Internal server error", "details": str(e)}
@@ -84,31 +87,32 @@ async def websocket_enhance_prompt(websocket: WebSocket):
     """WebSocket endpoint for real-time prompt enhancement updates"""
     await websocket.accept()
     active_connections.append(websocket)
-    
+
     try:
         while True:
             # Receive prompt data
             data = await websocket.receive_json()
-            
+
             try:
                 # Create a PromptRequest
                 request_id = str(uuid.uuid4())
                 prompt_request = PromptRequest(
                     request_id=request_id,
                     content=data.get("prompt", ""),
-                    context=data.get("context", {})
+                    context=data.get("context", {}) # Include context from WebSocket data
                 )
-                
-                # Send status updates for each stage
+
+                # Send initial processing status
                 await websocket.send_json({
                     "status": "processing",
-                    "stage": "topic_analysis",
-                    "message": "Analyzing prompt topics..."
+                    "stage": "initial", # Use a general initial stage or the first agent's name
+                    "message": "Starting prompt enhancement process..."
                 })
-                
-                # Process with CrewAI (this would be modified to provide real-time updates)
+
+                # Process with CrewAI
+                # The enhance_prompt method in crew.py now calls crew.kickoff
                 result = prompt_enhancer.enhance_prompt(prompt_request)
-                
+
                 # Send the final result
                 await websocket.send_json({
                     "status": "complete",
@@ -116,23 +120,45 @@ async def websocket_enhance_prompt(websocket: WebSocket):
                     "enhanced_prompt": result["enhanced_prompt"],
                     "processing_details": result["processing_details"]
                 })
-                
+
             except ValidationError as e:
+                logging.error(f"Validation Error during WebSocket prompt enhancement: {e}", exc_info=True)
                 await websocket.send_json({
                     "status": "error",
                     "message": "Invalid request data",
                     "details": str(e)
                 })
             except Exception as e:
+                # Log the error before sending over WebSocket
+                logging.error(f"Error during prompt enhancement via WebSocket: {e}", exc_info=True)
                 await websocket.send_json({
                     "status": "error",
-                    "message": "Internal server error",
+                    "message": "Internal server error during processing",
                     "details": str(e)
                 })
-                
+
     except WebSocketDisconnect:
+        logger.info("WebSocket disconnected.")
         active_connections.remove(websocket)
+    except Exception as e:
+         # Catch any other exceptions during WebSocket handling
+         logger.error(f"Unexpected error in WebSocket handler: {e}", exc_info=True)
+         # Attempt to send an error message before closing
+         try:
+             await websocket.send_json({
+                 "status": "error",
+                 "message": "An unexpected server error occurred.",
+                 "details": str(e)
+             })
+         except Exception:
+             pass # Ignore if sending fails during cleanup
+         finally:
+             if websocket in active_connections:
+                 active_connections.remove(websocket)
+
 
 if __name__ == "__main__":
     import uvicorn
+    # Configure basic logging for uvicorn and the application
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
