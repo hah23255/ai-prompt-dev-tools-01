@@ -1,0 +1,13 @@
+# Topic Analysis Task
+topic_analysis_task:
+  description: "Analyze the input prompt to identify core topics, domain, complexity, and key entities"
+  expected_output: "A structured analysis of the prompt's core elements"
+  agent: "topic_analysis"
+  
+# Category Breakdown Task
+category_breakdown_task:
+  description: "Break down the analyzed prompt into logical sections and categories"
+  expected_output: "A structured breakdown of the prompt into categories for enhancement"
+  agent: "category_breakdown"
+  
+# Similar configurations for other tasks
