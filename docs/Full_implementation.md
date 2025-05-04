@@ -24,7 +24,6 @@ prompt-enhancer/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py                # FastAPI entry point
-│   ├── config.py              # Configuration settings
 │   ├── models/                # Pydantic models
 │   │   ├── __init__.py
 │   │   ├── base.py            # Base models
@@ -38,8 +37,7 @@ prompt-enhancer/
 │   │   └── research_integration.py
 │   ├── orchestrator/          # CrewAI orchestration
 │   │   ├── __init__.py
-│   │   ├── crew.py            # Crew definition
-│   │   └── flow.py            # Flow definition
+│   │   └── crew.py            # Crew definition
 │   ├── services/              # External services
 │   │   ├── __init__.py
 │   │   ├── lmstudio.py        # LMStudio integration
@@ -54,11 +52,18 @@ prompt-enhancer/
 ├── tests/                     # Unit and integration tests
 │   ├── __init__.py
 │   ├── test_agents.py
-│   └── test_integration.py
+│   ├── test_main.py
+│   ├── test_models.py
+│   ├── test_run.py
+│   └── test_websocket.py
+├── docs/                      # Documentation files
+├── memory-bank/               # Project memory and logs
+├── project_journal/           # Project task journaling
 ├── .env                       # Environment variables
 ├── README.md                  # Project documentation
 └── requirements.txt           # Dependencies
 ```
+*Note: The actual codebase also includes `memory-bank/` and `project_journal/` directories for project tracking and journaling, which are not explicitly detailed in the original structure diagram but are present in the project.*
 
 ## Step 2: Define Data Models with Pydantic
 
@@ -73,7 +78,7 @@ class BaseResponse(BaseModel):
     status: str = "success"
     processing_time: float
     timestamp: datetime = Field(default_factory=datetime.now)
-    
+
 class BaseRequest(BaseModel):
     """Base request model for all agents"""
     request_id: str
@@ -90,14 +95,14 @@ class PromptRequest(BaseRequest):
     """Initial prompt request from user"""
     content: str = Field(..., min_length=10)
     context: Optional[Dict[str, Any]] = None
-    
+
 class TopicAnalysisResult(BaseResponse):
     """Result from Topic Analysis Agent"""
     core_topics: List[str]
     domain_classification: str
     complexity_level: int = Field(1, ge=1, le=10)
     key_entities: List[str]
-    
+
 # Create similar models for other agent outputs
 ```
 
@@ -112,22 +117,22 @@ from typing import Dict, Any, Optional
 
 class LMStudioService:
     """Service for interacting with LMStudio local LLM"""
-    
+
     def __init__(self, model_name: str = "llama-3-8b-instruct", api_base: str = "http://localhost:1234"):
         self.api_base = api_base
         self.model_name = model_name
         self.ensure_model_loaded()
-        
+
     def ensure_model_loaded(self):
         """Ensure the model is loaded in LMStudio"""
         models_url = f"{self.api_base}/api/v0/models"
         models = requests.get(models_url).json()
-        
+
         if not any(model["id"] == self.model_name for model in models["data"]):
             # Use LMStudio Python client to load model
             import subprocess
             subprocess.run(["lms", "load", self.model_name])
-    
+
     def generate_completion(self, prompt: str, temperature: float = 0.7) -> str:
         """Generate text completion using LMStudio"""
         try:
@@ -159,7 +164,7 @@ topic_analysis:
   backstory: "As a Topic Analysis Specialist, your expertise lies in dissecting prompts to identify their fundamental topics, domains, and complexities. Your analysis forms the foundation for all subsequent enhancement processes."
   verbose: true
   allow_delegation: false
-  
+
 # Category Breakdown Agent
 category_breakdown:
   role: "Category Classification Expert"
@@ -180,7 +185,7 @@ from typing import Dict, Any
 
 class TopicAnalysisAgent:
     """Agent responsible for analyzing the core topics of a prompt"""
-    
+
     def __init__(self, config: Dict[str, Any], lmstudio_service: LMStudioService):
         self.lmstudio_service = lmstudio_service
         self.agent = Agent(
@@ -190,7 +195,7 @@ class TopicAnalysisAgent:
             verbose=config["verbose"],
             allow_delegation=config["allow_delegation"]
         )
-        
+
     def process(self, prompt_request: PromptRequest) -> TopicAnalysisResult:
         """Process the input prompt and extract core topics"""
         # Construct prompt for LMStudio
@@ -200,15 +205,15 @@ class TopicAnalysisAgent:
         2. Domain classification (e.g., technology, science, arts, business)
         3. Complexity level (1-10, where 10 is most complex)
         4. Key entities (people, organizations, products, concepts)
-        
+
         Prompt to analyze: {prompt_request.content}
-        
+
         Format your response as a JSON object with keys: core_topics, domain_classification, complexity_level, key_entities.
         """
-        
+
         # Get analysis from LMStudio
         response = self.lmstudio_service.generate_completion(analysis_prompt)
-        
+
         # Parse response and create result object
         # In a real implementation, add proper error handling and response parsing
         import json
@@ -246,13 +251,13 @@ topic_analysis_task:
   description: "Analyze the input prompt to identify core topics, domain, complexity, and key entities"
   expected_output: "A structured analysis of the prompt's core elements"
   agent: "topic_analysis"
-  
+
 # Category Breakdown Task
 category_breakdown_task:
   description: "Break down the analyzed prompt into logical sections and categories"
   expected_output: "A structured breakdown of the prompt into categories for enhancement"
   agent: "category_breakdown"
-  
+
 # Similar configurations for other tasks
 ```
 
@@ -274,85 +279,85 @@ from app.models.prompt import PromptRequest
 
 class PromptEnhancerCrew(CrewBase):
     """CrewAI orchestration for the Prompt Enhancer System"""
-    
+
     def __init__(self):
         # Load configurations
         config_dir = Path(__file__).parent.parent.parent / "config"
-        
+
         with open(config_dir / "agents.yaml", "r") as f:
             self.agents_config = yaml.safe_load(f)
-            
+
         with open(config_dir / "tasks.yaml", "r") as f:
             self.tasks_config = yaml.safe_load(f)
-            
+
         # Initialize LMStudio service
         self.lmstudio_service = LMStudioService()
-        
+
         # Initialize agents
         self.topic_analysis_agent = TopicAnalysisAgent(
             self.agents_config["topic_analysis"],
             self.lmstudio_service
         )
-        
+
         self.category_breakdown_agent = CategoryBreakdownAgent(
             self.agents_config["category_breakdown"],
             self.lmstudio_service
         )
-        
+
         self.iterative_refinement_agent = IterativeRefinementAgent(
             self.agents_config["iterative_refinement"],
             self.lmstudio_service
         )
-        
+
         self.research_integration_agent = ResearchIntegrationAgent(
             self.agents_config["research_integration"],
             self.lmstudio_service
         )
-    
+
     @agent
     def get_topic_analysis_agent(self) -> Agent:
         return self.topic_analysis_agent.agent
-    
+
     @agent
     def get_category_breakdown_agent(self) -> Agent:
         return self.category_breakdown_agent.agent
-    
+
     @agent
     def get_iterative_refinement_agent(self) -> Agent:
         return self.iterative_refinement_agent.agent
-    
+
     @agent
     def get_research_integration_agent(self) -> Agent:
         return self.research_integration_agent.agent
-    
+
     @task
     def topic_analysis_task(self) -> Task:
         return Task(
             config=self.tasks_config["topic_analysis_task"],
             agent=self.get_topic_analysis_agent()
         )
-    
+
     @task
     def category_breakdown_task(self) -> Task:
         return Task(
             config=self.tasks_config["category_breakdown_task"],
             agent=self.get_category_breakdown_agent()
         )
-    
+
     @task
     def iterative_refinement_task(self) -> Task:
         return Task(
             config=self.tasks_config["iterative_refinement_task"],
             agent=self.get_iterative_refinement_agent()
         )
-    
+
     @task
     def research_integration_task(self) -> Task:
         return Task(
             config=self.tasks_config["research_integration_task"],
             agent=self.get_research_integration_agent()
         )
-    
+
     @crew
     def get_crew(self) -> Crew:
         """Creates the Prompt Enhancer crew"""
@@ -372,15 +377,15 @@ class PromptEnhancerCrew(CrewBase):
             process=Process.sequential,
             verbose=True
         )
-        
+
     def enhance_prompt(self, prompt_request: PromptRequest) -> Dict[str, Any]:
         """Process a prompt through the enhancement pipeline"""
         # Initialize crew
         crew = self.get_crew()
-        
+
         # Execute the crew with the prompt
         result = crew.kickoff(inputs={"prompt": prompt_request.content})
-        
+
         return {
             "status": "success",
             "enhanced_prompt": result,
@@ -452,12 +457,12 @@ async def enhance_prompt(prompt_data: Dict[str, Any]):
             content=prompt_data.get("prompt", ""),
             context=prompt_data.get("context", {})
         )
-        
+
         # Process the prompt using CrewAI
         start_time = time.time()
         result = prompt_enhancer.enhance_prompt(prompt_request)
         processing_time = time.time() - start_time
-        
+
         # Return the enhanced prompt
         return {
             "request_id": request_id,
@@ -482,12 +487,12 @@ async def websocket_enhance_prompt(websocket: WebSocket):
     """WebSocket endpoint for real-time prompt enhancement updates"""
     await websocket.accept()
     active_connections.append(websocket)
-    
+
     try:
         while True:
             # Receive prompt data
             data = await websocket.receive_json()
-            
+
             try:
                 # Create a PromptRequest
                 request_id = str(uuid.uuid4())
@@ -496,17 +501,17 @@ async def websocket_enhance_prompt(websocket: WebSocket):
                     content=data.get("prompt", ""),
                     context=data.get("context", {})
                 )
-                
+
                 # Send status updates for each stage
                 await websocket.send_json({
                     "status": "processing",
                     "stage": "topic_analysis",
                     "message": "Analyzing prompt topics..."
                 })
-                
+
                 # Process with CrewAI (this would be modified to provide real-time updates)
                 result = prompt_enhancer.enhance_prompt(prompt_request)
-                
+
                 # Send the final result
                 await websocket.send_json({
                     "status": "complete",
@@ -514,7 +519,7 @@ async def websocket_enhance_prompt(websocket: WebSocket):
                     "enhanced_prompt": result["enhanced_prompt"],
                     "processing_details": result["processing_details"]
                 })
-                
+
             except ValidationError as e:
                 await websocket.send_json({
                     "status": "error",
@@ -527,7 +532,7 @@ async def websocket_enhance_prompt(websocket: WebSocket):
                     "message": "Internal server error",
                     "details": str(e)
                 })
-                
+
     except WebSocketDisconnect:
         active_connections.remove(websocket)
 
@@ -552,14 +557,14 @@ if __name__ == "__main__":
             <h1>AI-Driven Prompt Enhancer</h1>
             <p>Automatically enhance your prompts with specialized AI agents</p>
         </header>
-        
+
         <main>
             <div class="prompt-input">
                 <h2>Enter Your Prompt</h2>
                 <textarea id="prompt-text" rows="6" placeholder="Enter your prompt here..."></textarea>
                 <button id="enhance-btn">Enhance Prompt</button>
             </div>
-            
+
             <div class="processing-status">
                 <h2>Processing Status</h2>
                 <div id="status-container">
@@ -581,14 +586,14 @@ if __name__ == "__main__":
                     </div>
                 </div>
             </div>
-            
+
             <div class="results-container">
                 <h2>Enhanced Prompt</h2>
                 <div id="result-text"></div>
             </div>
         </main>
     </div>
-    
+
     <script src="/static/js/main.js"></script>
 </body>
 </html>
@@ -606,22 +611,22 @@ from semanticscholar import SemanticScholar
 
 class ResearchService:
     """Service for gathering research information from various sources"""
-    
+
     def __init__(self):
         self.arxiv_client = arxiv.Client()
         self.semantic_scholar = SemanticScholar()
-    
+
     def search_web(self, query: str, num_results: int = 5) -> List[Dict[str, str]]:
         """Search the web for information (using a hypothetical search API)"""
         # This would be replaced with an actual search API
         # For example, using SerpAPI, Google Custom Search, or similar
         return [
-            {"title": f"Result {i} for {query}", 
+            {"title": f"Result {i} for {query}",
              "snippet": f"This is a snippet for result {i}",
              "url": f"https://example.com/{i}"}
             for i in range(1, num_results + 1)
         ]
-    
+
     def search_arxiv(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
         """Search arXiv for academic papers"""
         search = arxiv.Search(
@@ -629,7 +634,7 @@ class ResearchService:
             max_results=max_results,
             sort_by=arxiv.SortCriterion.Relevance
         )
-        
+
         results = []
         for paper in self.arxiv_client.results(search):
             results.append({
@@ -639,13 +644,13 @@ class ResearchService:
                 "url": paper.pdf_url,
                 "published": paper.published.strftime("%Y-%m-%d")
             })
-        
+
         return results
-    
+
     def search_semantic_scholar(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Search Semantic Scholar for academic papers"""
         papers = self.semantic_scholar.search_paper(query, limit=limit)
-        
+
         results = []
         for paper in papers:
             results.append({
@@ -655,15 +660,15 @@ class ResearchService:
                 "url": paper.url,
                 "year": paper.year
             })
-        
+
         return results
-        
+
     def aggregate_research(self, query: str) -> Dict[str, Any]:
         """Aggregate research from multiple sources"""
         web_results = self.search_web(query)
         arxiv_results = self.search_arxiv(query)
         scholar_results = self.search_semantic_scholar(query)
-        
+
         return {
             "web_results": web_results,
             "arxiv_papers": arxiv_results,
@@ -703,7 +708,7 @@ def check_lmstudio_running():
             return True
     except:
         pass
-    
+
     logger.error("LMStudio is not running. Please start LMStudio server.")
     return False
 
@@ -714,7 +719,7 @@ def main():
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--debug", action="store_true", help="Run in debug mode")
     args = parser.parse_args()
-    
+
     # Check if LMStudio is running
     if not check_lmstudio_running():
         logger.info("Attempting to start LMStudio...")
@@ -725,7 +730,7 @@ def main():
         except:
             logger.error("Failed to start LMStudio automatically. Please start it manually.")
             return
-    
+
     # Run FastAPI
     logger.info(f"Starting FastAPI server on {args.host}:{args.port}")
     uvicorn.run(
@@ -749,7 +754,7 @@ from app.models.prompt import PromptRequest, TopicAnalysisResult
 from app.services.lmstudio import LMStudioService
 
 class TestTopicAnalysisAgent(unittest.TestCase):
-    
+
     def setUp(self):
         # Mock LMStudio service
         self.mock_lmstudio = MagicMock(spec=LMStudioService)
@@ -761,7 +766,7 @@ class TestTopicAnalysisAgent(unittest.TestCase):
             "key_entities": ["GPT", "BERT", "Transformers"]
         }
         '''
-        
+
         # Create agent config
         self.agent_config = {
             "role": "Topic Analysis Specialist",
@@ -770,23 +775,23 @@ class TestTopicAnalysisAgent(unittest.TestCase):
             "verbose": True,
             "allow_delegation": False
         }
-        
+
         # Create agent
         self.agent = TopicAnalysisAgent(
             config=self.agent_config,
             lmstudio_service=self.mock_lmstudio
         )
-        
+
     def test_process_valid_prompt(self):
         # Create test prompt
         prompt_request = PromptRequest(
             request_id="test-123",
             content="Explain how transformer models work in NLP and their applications."
         )
-        
+
         # Process prompt
         result = self.agent.process(prompt_request)
-        
+
         # Check result
         self.assertIsInstance(result, TopicAnalysisResult)
         self.assertEqual(result.status, "success")
@@ -794,20 +799,20 @@ class TestTopicAnalysisAgent(unittest.TestCase):
         self.assertEqual(result.domain_classification, "technology")
         self.assertEqual(result.complexity_level, 7)
         self.assertEqual(result.key_entities, ["GPT", "BERT", "Transformers"])
-        
+
     def test_process_invalid_response(self):
         # Mock invalid JSON response
         self.mock_lmstudio.generate_completion.return_value = "Invalid JSON"
-        
+
         # Create test prompt
         prompt_request = PromptRequest(
             request_id="test-123",
             content="Test prompt"
         )
-        
+
         # Process prompt
         result = self.agent.process(prompt_request)
-        
+
         # Check error handling
         self.assertIsInstance(result, TopicAnalysisResult)
         self.assertEqual(result.status, "error")

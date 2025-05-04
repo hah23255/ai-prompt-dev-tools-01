@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add the project root to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime # <-- Add this import
@@ -13,6 +19,8 @@ class TestTopicAnalysisAgent(unittest.TestCase):
     def setUp(self):
         # Mock the LMStudioService
         self.mock_lmstudio = MagicMock()
+        # Mock the LLM object
+        self.mock_llm = MagicMock()
         # Provide a dummy config dictionary
         agent_config = {
             "role": "Topic Analyzer",
@@ -23,8 +31,8 @@ class TestTopicAnalysisAgent(unittest.TestCase):
             "max_iter": 15,
             "max_rpm": 100
         }
-        # Initialize the TopicAnalysisAgent with the mock service and config
-        self.agent = TopicAnalysisAgent(agent_config, self.mock_lmstudio)
+        # Initialize the TopicAnalysisAgent with the mock service, config, and mock llm
+        self.agent = TopicAnalysisAgent(agent_config, self.mock_lmstudio, self.mock_llm)
 
     def test_process_valid_prompt(self):
         # Mock a valid JSON response from LMStudio

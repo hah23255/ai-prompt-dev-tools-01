@@ -1,41 +1,187 @@
-import lmstudio as lms
+# import lmstudio as lms # Removed - we will use LiteLLM directly
 import os
 import requests
 from typing import Dict, Any, Optional
+import logging # Import logging
+from litellm import completion # Import LiteLLM completion function
+from litellm.exceptions import AuthenticationError, APIConnectionError # Import specific LiteLLM exceptions
+from langchain_core.language_models.llms import BaseLLM # Import BaseLLM
+from langchain_core.outputs import LLMResult, Generation # Import LLMResult and Generation
+from typing import List # Import List
+
+# Configure logger for this module
+logger = logging.getLogger(__name__)
 
 class LMStudioService:
-    """Service for interacting with LMStudio local LLM"""
-    
+    """Service for interacting with LMStudio local LLM using LiteLLM"""
+
     def __init__(self, model_name: str = "qwen3-1.7b", api_base: str = "http://localhost:1234"):
         self.api_base = api_base
         self.model_name = model_name
+        # LiteLLM often requires an API key even for local endpoints.
+        # A dummy key like "sk-test" or "dummy" usually works.
+        self.api_key = "sk-test" # Use a dummy API key
+
+        # Set the global LiteLLM API base to ensure requests go to LMStudio
+        import litellm
+        litellm.api_base = f"{self.api_base}/v1"
+        litellm.api_key = self.api_key # Also set global API key
+
+        # Ensure the model is loaded when the service is initialized
+        # Note: This might not be ideal for all scenarios (e.g., if LMStudio
+        # is started separately). Consider if this is the right place for this logic.
         self.ensure_model_loaded()
-        
+
     def ensure_model_loaded(self):
         """Ensure the model is loaded in LMStudio"""
-        models_url = f"{self.api_base}/api/v0/models"
-        models = requests.get(models_url).json()
-        
-        if not any(model["id"] == self.model_name for model in models["data"]):
-            # Use LMStudio Python client to load model
-            import subprocess
-            subprocess.run(["lms", "load", self.model_name])
-    
-    def generate_completion(self, prompt: str, temperature: float = 0.7) -> str:
-        """Generate text completion using LMStudio"""
+        models_url = f"{self.api_base}/v1/models" # Use v1 endpoint for models
         try:
-            model = lms.llm(self.model_name)
-            result = model.respond(prompt, temperature=temperature)
-            return result
+            # Use requests to check if the model is listed
+            response = requests.get(models_url)
+            response.raise_for_status() # Raise an exception for bad status codes
+            models_data = response.json()
+
+            # Check if the model is in the list of available models
+            if not any(model["id"] == self.model_name for model in models_data.get("data", [])):
+                logger.info(f"Model '{self.model_name}' not found in LMStudio. Attempting to load...")
+                # Use LMStudio CLI to load model
+                # Ensure 'lms' is in your system's PATH or provide its full path
+                try:
+                    # subprocess.run waits for the command to complete
+                    subprocess.run(["lms", "load", self.model_name], check=True) # Use check=True to raise error on failure
+                    logger.info(f"Model '{self.model_name}' loaded successfully.")
+                except FileNotFoundError:
+                    logger.error("Error: 'lms' command not found. Cannot load model.")
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"Error loading model '{self.model_name}' with 'lms load': {e}")
+                except Exception as e:
+                    logger.error(f"An unexpected error occurred while attempting to load model: {e}")
+            else:
+                logger.info(f"Model '{self.model_name}' is already loaded in LMStudio.")
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error checking LMStudio models endpoint {models_url}: {e}")
         except Exception as e:
-            print(f"Error in LMStudio completion: {e}")
-            # Fallback to REST API if Python client fails
-            response = requests.post(
-                f"{self.api_base}/api/v0/chat/completions",
-                json={
-                    "model": self.model_name,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": temperature
-                }
+             logger.error(f"An unexpected error occurred while ensuring model is loaded: {e}")
+
+
+    def generate_completion(self, prompt: str, temperature: float = 0.7) -> str:
+        """Generate text completion using LiteLLM configured for LMStudio"""
+        logger.info(f"Generating completion for prompt (first 50 chars): {prompt[:50]}...")
+        try:
+            # Use LiteLLM's completion function
+            # Explicitly pass api_base and api_key, and specify the model name
+            # Note: With the global api_base set, these might be redundant,
+            # but keeping them for clarity and potential future flexibility.
+            logger.info(f"Calling LiteLLM completion with model='openai/{self.model_name}'...") # Log parameters
+            response = completion(
+                model=f"openai/{self.model_name}", # LiteLLM often uses "openai/" prefix for OpenAI-compatible endpoints
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature
             )
-            return response.json()["choices"][0]["message"]["content"]
+            logger.info("LiteLLM completion successful.")
+            # Extract the content from the response
+            # The structure might vary slightly based on LiteLLM/model, but this is common
+            return response.choices[0].message.content
+
+        except (AuthenticationError, APIConnectionError) as e:
+             logger.error(f"LiteLLM Authentication or Connection Error: {e}")
+             # Depending on your needs, you might want to raise this error
+             # or return a specific error message/structure.
+             # For now, return an informative error string.
+             return f"Error: Failed to connect to LMStudio or authenticate with LiteLLM. Details: {e}"
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during LiteLLM completion: {e}")
+            # Return a generic error message for other exceptions
+            return f"Error: An unexpected error occurred during completion. Details: {e}"
+
+# You might need to import subprocess for ensure_model_loaded
+import subprocess
+
+class LMStudioLiteLLMWrapper(BaseLLM):
+    """
+    A wrapper around LMStudioService to make it compatible with LangChain's BaseLLM.
+    This allows using LMStudioService directly with frameworks like CrewAI
+    that expect a LangChain LLM object.
+    """
+    _lmstudio_service: LMStudioService # Renamed to private attribute
+
+    def __init__(self, lmstudio_service: LMStudioService, **kwargs: Any):
+        super().__init__(**kwargs)
+        self._lmstudio_service = lmstudio_service # Assign to the private attribute
+
+    @property
+    def _llm_type(self) -> str:
+        """Return type of llm."""
+        return "lmstudio_litellm_wrapper"
+
+    @property
+    def model_name(self) -> str:
+        """Return the model name used by this LLM."""
+        # Return the model name in the format expected by LiteLLM/CrewAI
+        return f"openai/{self._lmstudio_service.model_name}"
+
+    def _call(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[Any] = None, # Use Any for simplicity with CrewAI's run_manager
+        **kwargs: Any,
+    ) -> str:
+        """
+        Implement the core logic of the LLM.
+        This method is called by the LangChain/CrewAI framework.
+        """
+        logger.info(f"LMStudioLiteLLMWrapper _call for prompt (first 50 chars): {prompt[:50]}...")
+        try:
+            # Directly call LiteLLM completion using the service's configuration
+            # Global api_base and api_key should now be set by LMStudioService __init__
+            response = completion(
+                model=f"openai/{self._lmstudio_service.model_name}",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=kwargs.get("temperature", 0.7), # Pass temperature from kwargs or default
+                stop=stop, # Pass stop words
+                **kwargs # Pass any other relevant kwargs
+            )
+            logger.info("LiteLLM completion successful in wrapper.")
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Error during LMStudioLiteLLMWrapper _call: {e}")
+            # Re-raise the exception to be handled by the calling framework (CrewAI/LangChain)
+            raise e
+
+    def _generate(
+        self,
+        prompts: List[str],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[Any] = None, # Use Any for simplicity
+        **kwargs: Any,
+    ) -> LLMResult:
+        """Generate completion for the given prompts."""
+        logger.info(f"LMStudioLiteLLMWrapper _generate for {len(prompts)} prompts.")
+        generations: List[List[Generation]] = []
+        for prompt in prompts:
+            try:
+                # Directly call LiteLLM completion for each prompt
+                # Global api_base and api_key should now be set by LMStudioService __init__
+                response = completion(
+                    model=f"openai/{self._lmstudio_service.model_name}",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=kwargs.get("temperature", 0.7), # Pass temperature from kwargs or default
+                    stop=stop, # Pass stop words
+                    **kwargs # Pass any other relevant kwargs
+                )
+                # Wrap the response text in a Generation object
+                generations.append([Generation(text=response.choices[0].message.content)])
+            except Exception as e:
+                logger.error(f"Error during LMStudioLiteLLMWrapper _generate call for prompt: {prompt[:50]}... Error: {e}")
+                # Append an error generation or handle as appropriate
+                # Depending on desired behavior, you might raise the exception
+                # or append an error message. Appending error message for now.
+                generations.append([Generation(text=f"Error: {e}")])
+
+        # Create an LLMResult object
+        # Note: Token usage and other details might not be available or need
+        # to be extracted from the underlying LiteLLM response if possible.
+        # For simplicity, we'll create a basic LLMResult.
+        return LLMResult(generations=generations)
