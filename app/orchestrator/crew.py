@@ -1,6 +1,7 @@
 import os
 import yaml
 import logging # Import logging
+import json # Import the json module
 from crewai import Agent, Task, Crew, Process
 from crewai.project import CrewBase, agent, task, crew
 from typing import Dict, Any, List
@@ -13,7 +14,7 @@ from app.services.lmstudio import LMStudioService, LMStudioLiteLLMWrapper # Impo
 from app.agents.topic_analysis import TopicAnalysisAgent
 from app.agents.category_breakdown import CategoryBreakdownAgent
 from app.agents.iterative_refinement import IterativeRefinementAgent
-from app.agents.research_integration import ResearchIntegrationAgent
+from app.agents.research_integration import ResearchIntegrationAgent, ResearchIntegrationInputData, ResearchIntegrationToolInput # Import necessary classes for manual input construction
 
 # Assuming your LMStudio service exists and works correctly
 # from app.services.lmstudio import LMStudioService # Already imported above
@@ -24,6 +25,7 @@ from app.models.prompt import PromptRequest
 # Define the path to the configuration directory
 # This path should now be relative to the crew.py file itself
 # and point to the config directory *within* app/orchestrator/
+# Updated CONFIG_DIR to be relative to the current file's directory
 CONFIG_DIR = Path(__file__).parent / "config"
 print(f"CONFIG_DIR: {CONFIG_DIR}") # Print the actual path being used
 
@@ -39,6 +41,17 @@ class PromptEnhancerCrew:
     """CrewAI orchestration for the Prompt Enhancer System"""
 
     def __init__(self):
+        # Initialize service and LLM instances
+        self.lmstudio_service = LMStudioService()
+        self.litellm_llm = LMStudioLiteLLMWrapper(self.lmstudio_service)
+
+        # Initialize custom agent wrappers
+        agents_config = self._load_config("agents")
+        self.topic_analysis_wrapper = TopicAnalysisAgent(agents_config.get("topic_analysis", {}), self.lmstudio_service, self.litellm_llm)
+        self.category_breakdown_wrapper = CategoryBreakdownAgent(agents_config.get("category_breakdown", {}), self.lmstudio_service, self.litellm_llm)
+        self.iterative_refinement_wrapper = IterativeRefinementAgent(agents_config.get("iterative_refinement", {}), self.lmstudio_service, self.litellm_llm)
+        self.research_integration_wrapper = ResearchIntegrationAgent(agents_config.get("research_integration", {}), self.lmstudio_service, self.litellm_llm)
+
         # __init__ can be used for general setup, but agent/task/crew creation
         # is handled by the decorated methods below.
         pass
@@ -50,6 +63,10 @@ class PromptEnhancerCrew:
             with open(config_path, "r") as f:
                 return yaml.safe_load(f)
         except FileNotFoundError:
+            # Log a warning instead of raising an error here, as CrewBase
+            # might handle missing files differently or you might want
+            # to proceed with defaults if the files are optional.
+            # Re-raising is probably correct if they are mandatory.
             logger.error(f"Configuration file not found: {config_path}")
             raise # Re-raise the exception
         except yaml.YAMLError as e:
@@ -57,74 +74,31 @@ class PromptEnhancerCrew:
             raise # Re-raise the exception
 
 
-    # Define the LMStudio service instance
-    # This is initialized once per CrewBase instance and reused by agent methods
-    @property
-    def lmstudio_service(self) -> LMStudioService:
-        """Initializes and returns the LMStudio service"""
-        # You might want to cache this if it's expensive to initialize
-        # This implementation creates a new instance each time the property is accessed,
-        # which is fine if LMStudioService is lightweight. If not, implement caching here.
-        return LMStudioService()
-
-    @property
-    def litellm_llm(self) -> LMStudioLiteLLMWrapper: # Change return type hint
-        """Initializes and returns a LiteLLM instance configured for LMStudio"""
-        # Get the LMStudio service instance to access its configuration
-        lmstudio_service = self.lmstudio_service
-        # Return an instance of the new wrapper class
-        return LMStudioLiteLLMWrapper(lmstudio_service=lmstudio_service)
-
-    # Renamed agent methods to match expected names in tasks.yaml
+    # Modified agent methods to return the custom agent wrapper instance
     @agent
-    def topic_analysis(self) -> Agent: # Renamed from topic_analysis_agent
-        """Creates and returns the Topic Analysis Agent."""
-        agents_config = self._load_config("agents")
-        agent_config = agents_config.get("topic_analysis", {})
-        custom_agent_wrapper = TopicAnalysisAgent(
-            agent_config,
-            self.lmstudio_service, # Pass the LMStudio service instance
-            self.litellm_llm # Pass the configured LiteLLM instance (the wrapper)
-        )
-        # The custom_agent_wrapper instance holds the CrewAI Agent AND the tool
-        return custom_agent_wrapper.agent # Return the CrewAI Agent instance
+    def topic_analysis(self) -> Agent: # Return type hint is CrewAI Agent
+        """Returns the CrewAI Topic Analysis Agent instance."""
+        # The wrapper is initialized in __init__
+        return self.topic_analysis_wrapper.agent
 
 
     @agent
-    def category_breakdown(self) -> Agent: # Renamed from category_breakdown_agent
-        """Creates and returns the Category Breakdown Agent."""
-        agents_config = self._load_config("agents")
-        agent_config = agents_config.get("category_breakdown", {})
-        custom_agent_wrapper = CategoryBreakdownAgent(
-            agent_config,
-            self.lmstudio_service, # Pass the LMStudio service instance
-            self.litellm_llm # Pass the configured LiteLLM instance (now the wrapper)
-        )
-        return custom_agent_wrapper.agent
+    def category_breakdown(self) -> Agent: # Return type hint is CrewAI Agent
+        """Returns the CrewAI Category Breakdown Agent instance."""
+        # The wrapper is initialized in __init__
+        return self.category_breakdown_wrapper.agent
 
     @agent
-    def iterative_refinement(self) -> Agent: # Renamed from iterative_refinement_agent
-        """Creates and returns the Iterative Refinement Agent."""
-        agents_config = self._load_config("agents")
-        agent_config = agents_config.get("iterative_refinement", {})
-        custom_agent_wrapper = IterativeRefinementAgent(
-            agent_config,
-            self.lmstudio_service, # Pass the LMStudio service instance
-            self.litellm_llm # Pass the configured LiteLLM instance (the wrapper)
-        )
-        return custom_agent_wrapper.agent
+    def iterative_refinement(self) -> Agent: # Return type hint is CrewAI Agent
+        """Returns the CrewAI Iterative Refinement Agent instance."""
+        # The wrapper is initialized in __init__
+        return self.iterative_refinement_wrapper.agent
 
     @agent
-    def research_integration(self) -> Agent: # Renamed from research_integration_agent
-        """Creates and returns the Research Integration Agent."""
-        agents_config = self._load_config("agents")
-        agent_config = agents_config.get("research_integration", {})
-        custom_agent_wrapper = ResearchIntegrationAgent(
-            agent_config,
-            self.lmstudio_service, # Pass the LMStudio service instance
-            self.litellm_llm # Pass the configured LiteLLM instance (the wrapper)
-        )
-        return custom_agent_wrapper.agent
+    def research_integration(self) -> Agent: # Return type hint is CrewAI Agent
+        """Returns the CrewAI Research Integration Agent instance."""
+        # The wrapper is initialized in __init__
+        return self.research_integration_wrapper.agent
 
 
     @task
@@ -132,14 +106,14 @@ class PromptEnhancerCrew:
         """Creates and returns the Topic Analysis Task"""
         tasks_config = self._load_config("tasks")
         task_config = tasks_config.get("topic_analysis_task", {})
-        # Get the agent instance to access its tools
-        topic_analysis_agent_instance = self.topic_analysis() # Call the agent method
+        # Get the CrewAI Agent instance (returned by the @agent method)
+        topic_analysis_crewai_agent = self.topic_analysis() # Call the agent method
 
         return Task(
-            description=task_config.get("description", "Default topic analysis description."),
-            expected_output=task_config.get("expected_output", "A JSON object containing core topics, domain, complexity, and key entities."),
-            agent=topic_analysis_agent_instance, # Assign the agent instance
-            tools=[topic_analysis_agent_instance.tools[0]], # Add the tool to the task's tools list
+            description=task_config.get("description", "Default topic analysis description."), # <-- Pass description directly
+            expected_output=task_config.get("expected_output", "A JSON object containing core topics, domain, complexity, and key entities."), # <-- Pass expected_output directly
+            agent=topic_analysis_crewai_agent, # Assign the CrewAI Agent instance
+            tools=[self.topic_analysis_wrapper.topic_analysis_tool], # Access the tool from the wrapper attribute
             # The task description in tasks.yaml MUST now instruct the agent to use this tool
             # e.g., "Use the 'Topic Analysis Tool' to analyze the input prompt: {prompt}"
             # Ensure the description also includes {prompt} if it's used.
@@ -150,14 +124,15 @@ class PromptEnhancerCrew:
         """Creates and returns the Category Breakdown Task"""
         tasks_config = self._load_config("tasks")
         task_config = tasks_config.get("category_breakdown_task", {})
-        category_breakdown_agent_instance = self.category_breakdown()
+        # Get the CrewAI Agent instance
+        category_breakdown_crewai_agent = self.category_breakdown() # Get the agent instance
         return Task(
-            description=task_config.get("description", "Default category breakdown description."),
-            expected_output=task_config.get("expected_output", "A list of categories or sub-topics identified in the prompt."),
-            agent=category_breakdown_agent_instance,
+            description=task_config.get("description", "Default category breakdown description."), # <-- Pass description directly
+            expected_output=task_config.get("expected_output", "A list of strings, where each string is a identified category or sub-topic."), # <-- Pass expected_output directly
+            agent=category_breakdown_crewai_agent, # Assign the CrewAI Agent instance
             # Add tool(s) for this task if the CategoryBreakdownAgent has one
-            # tools=[category_breakdown_agent_instance.tools[0]], # Example
-            context=[self.topic_analysis_task()], # This task likely needs context from the previous one
+            # tools=[self.category_breakdown_wrapper.category_breakdown_tool], # Example - Access tool from wrapper attribute
+            # context=[self.topic_analysis_task()], # This task likely needs context from the previous one
             # Ensure the description in tasks.yaml uses {output of topic_analysis_task} and {prompt}
         )
 
@@ -166,14 +141,15 @@ class PromptEnhancerCrew:
         """Creates and returns the Iterative Refinement Task"""
         tasks_config = self._load_config("tasks")
         task_config = tasks_config.get("iterative_refinement_task", {})
-        iterative_refinement_agent_instance = self.iterative_refinement()
+        # Get the CrewAI Agent instance
+        iterative_refinement_crewai_agent = self.iterative_refinement() # Get the agent instance
         return Task(
-            description=task_config.get("description", "Default iterative refinement description."),
-            expected_output=task_config.get("expected_output", "A refined version of the original prompt."),
-            agent=iterative_refinement_agent_instance,
+            description=task_config.get("description", "Default iterative refinement description."), # <-- Pass description directly
+            expected_output=task_config.get("expected_output", "A significantly improved and more detailed version of the original prompt."), # <-- Pass expected_output directly
+            agent=iterative_refinement_crewai_agent, # Assign the CrewAI Agent instance
             # Add tool(s) for this task if the IterativeRefinementAgent has one
-            # tools=[iterative_refinement_agent_instance.tools[0]], # Example
-            context=[self.topic_analysis_task(), self.category_breakdown_task()], # Needs context
+            # tools=[self.iterative_refinement_wrapper.iterative_refinement_tool], # Example - Access tool from wrapper attribute
+            # context=[self.topic_analysis_task(), self.category_breakdown_task()], # Needs context
             # Ensure the description in tasks.yaml uses {output of topic_analysis_task}, {output of category_breakdown_task}, and {prompt}
         )
 
@@ -182,14 +158,15 @@ class PromptEnhancerCrew:
         """Creates and returns the Research Integration Agent"""
         tasks_config = self._load_config("tasks")
         task_config = tasks_config.get("research_integration_task", {})
-        research_integration_agent_instance = self.research_integration()
+        # Get the CrewAI Agent instance
+        research_integration_crewai_agent = self.research_integration() # Get the agent instance
         return Task(
-            description=task_config.get("description", "Default research integration description."),
-            expected_output=task_config.get("expected_output", "The refined prompt with relevant research findings integrated."),
-            agent=research_integration_agent_instance,
+            description=task_config.get("description", "Default research integration description."), # <-- Pass description directly
+            expected_output=task_config.get("expected_output", "The refined prompt with relevant research findings integrated."), # <-- Pass expected_output directly
+            agent=research_integration_crewai_agent, # Assign the CrewAI Agent instance
             # Add tool(s) for this task if the ResearchIntegrationAgent has one
-            # tools=[self.research_tool()], # Example: If you have a research tool method
-            context=[self.iterative_refinement_task()], # Needs context
+            # tools=[self.research_integration_wrapper.research_integration_tool], # Example - Access tool from wrapper attribute
+            # context=[self.iterative_refinement_task()] # Needs context
             # Ensure the description in tasks.yaml uses {output of iterative_refinement_task}, {prompt}, and {context}
         )
 
@@ -202,17 +179,22 @@ class PromptEnhancerCrew:
             self.topic_analysis_task(),
             self.category_breakdown_task(),
             self.iterative_refinement_task(),
-            self.research_integration_task()
+            # self.research_integration_task() # Removed from here to be manually executed
         ]
 
+        # Get the CrewAI Agent instances from the custom wrappers for the Crew initialization
+        # ONLY include the first three agents in the main crew
+        crew_agents = [
+            self.topic_analysis(), # Call the agent methods to get agent instances
+            self.category_breakdown(),
+            self.iterative_refinement(),
+            # self.research_integration().agent # Removed from the main crew
+        ]
+
+
         return Crew(
-            agents=[
-                self.topic_analysis(), # Call the agent methods to get agent instances
-                self.category_breakdown(),
-                self.iterative_refinement(),
-                self.research_integration()
-            ],
-            tasks=tasks_list, # Use the ordered list of tasks
+            agents=crew_agents, # Use the list of CrewAI Agent instances (first three)
+            tasks=tasks_list, # Use the ordered list of tasks (excluding the last one)
             process=Process.sequential, # Or Process.hierarchical, etc.
             verbose=True # Set to False in production or based on config
         )
@@ -223,34 +205,91 @@ class PromptEnhancerCrew:
         try:
             # Initialize crew by calling the decorated method
             logger.info("Initializing crew...")
-            crew = self.get_crew()
+            # Get the crew instance. This instance contains the agent wrappers.
+            # Note: get_crew now only includes the first three agents in its Crew instance
+            crew_instance = self.get_crew()
             logger.info("Crew initialized.")
 
-            # Execute the crew with the prompt and context
-            logger.info(f"Kicking off crew with prompt: {prompt_request.content[:50]}... and context: {prompt_request.context}") # Log snippet
-            # Include the context from the prompt_request in the inputs dictionary
-            crew_output = crew.kickoff(inputs={"prompt": prompt_request.content, "context": prompt_request.context})
-            logger.info("Crew execution finished successfully.")
+            # Separate the tasks for manual execution of the last one
+            # Get the task instances directly from the crew_instance.tasks list
+            tasks_for_intermediate_crew = crew_instance.tasks # This list already excludes the last task as per get_crew
 
-            # The kickoff result is typically the output of the last task.
-            # Assuming the last task (research_integration_task) produces the final enhanced prompt string.
-            enhanced_prompt_result = str(crew_output) # Convert to string for serialization
+            # Get the Research Integration Agent *wrapper* instance directly
+            # Find the agent wrapper instance associated with the research integration agent
+            research_integration_agent_wrapper = None
+            # Access the research integration agent wrapper directly from the attribute
+            research_integration_agent_wrapper = self.research_integration_wrapper
 
-            # Accessing intermediate results requires agents/tasks to store them
-            # and expose them in a way that can be retrieved after kickoff.
-            # For now, these details are placeholders.
+            if not research_integration_agent_wrapper:
+                 # This should not happen if the @agent methods are defined, but good practice to check
+                 raise Exception("Research Integration Agent wrapper instance not found.")
+
+
+            # Execute the first three tasks sequentially using an intermediate crew
+            logger.info("Executing Topic Analysis, Category Breakdown, and Iterative Refinement tasks...")
+            # Create a new Crew instance for the intermediate tasks
+            # This ensures the context and outputs are managed for these steps
+            intermediate_crew_agents = [
+                self.topic_analysis(),
+                self.category_breakdown(),
+                self.iterative_refinement()
+            ]
+            intermediate_crew = Crew(
+                agents=intermediate_crew_agents, # Use the CrewAI Agent instances
+                tasks=tasks_for_intermediate_crew, # Use the list of tasks excluding the last one
+                process=Process.sequential,
+                verbose=True
+            )
+
+            # Kickoff the intermediate crew. The output will be the result of the last task (iterative refinement).
+            # Pass the original prompt and context to the intermediate crew
+            intermediate_results = intermediate_crew.kickoff(inputs={"prompt": prompt_request.content, "context": prompt_request.context})
+            # The output of the intermediate crew's kickoff is the output of the last task in its task list
+            refined_prompt_output = str(intermediate_results) # Assuming the output is the refined prompt string
+            logger.info(f"Iterative Refinement task completed. Output (first 50 chars): {refined_prompt_output[:50]}...")
+
+
+            # Manually execute the Research Integration Task using the agent wrapper's process method
+            logger.info("Executing Research Integration task manually...")
+
+            # Ensure the additional_context is a JSON string as expected by the agent's process method
+            # json.dumps handles converting the context dictionary to a JSON string
+            additional_context_json_string = json.dumps(prompt_request.context)
+
+            # Call the process method of the Research Integration Agent *wrapper* instance
+            # Construct the input object expected by the process method
+            research_integration_input = ResearchIntegrationToolInput(
+                tool_input=ResearchIntegrationInputData(
+                    refined_prompt=refined_prompt_output,
+                    original_prompt=prompt_request.content,
+                    additional_context=additional_context_json_string
+                )
+            )
+
+            # Call the process method with the constructed input object
+            final_enhanced_prompt = research_integration_agent_wrapper.process(research_integration_input)
+
+            logger.info("Research Integration task completed manually.")
+
+            # The final result is the output from the manual process call
+            enhanced_prompt_result = str(final_enhanced_prompt)
+
+            # Accessing intermediate results would require the agent wrappers to store them
+            # and expose them. For now, these details are placeholders.
+            # In a real application, you would collect results from agent wrapper instances
+            # after the crew has run, assuming they store their results.
             processing_details = {
-                 "topic_analysis": "Details not captured in this structure.",
-                 "category_breakdown": "Details not captured in this structure.",
-                 "iterative_refinement": "Details not captured in this structure.",
-                 "research_integration": "Details not captured in this structure."
+                 "topic_analysis": "Details not captured in this structure.", # Need to update if agents store results
+                 "category_breakdown": "Details not captured in this structure.", # Need to update if agents store results
+                 "iterative_refinement": "Details not captured in this structure.", # Need to update if agents store results
+                 "research_integration": "Details captured via manual execution."
             }
 
             # Return the successful result
             return {
                 "status": "complete",
                 "enhanced_prompt": enhanced_prompt_result,
-                "processing_details": processing_details # Placeholder details
+                "processing_details": processing_details
             }
         except ValidationError as e:
             logger.error(f"Validation Error during prompt enhancement: {e}", exc_info=True)
@@ -259,4 +298,3 @@ class PromptEnhancerCrew:
         except Exception as e:
             logger.error(f"Error during prompt enhancement: {e}", exc_info=True)
             raise e # Re-raise the exception for the FastAPI endpoint to handle
-

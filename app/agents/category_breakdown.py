@@ -1,16 +1,32 @@
 import logging
-# Corrected import: Import BaseTool from crewai_tools.tools.base
 from crewai import Agent
 from crewai.tools import BaseTool # Import BaseTool
+# Assuming these models exist
 
-from app.models.prompt import PromptRequest # Assuming PromptRequest might be needed for type hinting, though tool input is string
+from app.models.prompt import PromptRequest # Assuming PromptRequest might be needed for type hinting
 from app.models.response import CategoryAnalysisResult # Assuming this model exists
 from app.services.lmstudio import LMStudioService # Import LMStudioService
 from typing import Dict, Any, Optional
 from datetime import datetime
 import json # Import json
+from pydantic import BaseModel, Field # Import BaseModel and Field for Pydantic schema
 
 logger = logging.getLogger(__name__)
+
+# Define the Pydantic model for the actual input data fields
+class CategoryBreakdownInputData(BaseModel):
+    """Schema for the actual data fields within the tool's input."""
+    prompt: str = Field(description="The original text prompt from the user.")
+    topic_analysis: str = Field(description="The JSON string output from the Topic Analysis Tool.")
+
+# Define the Pydantic model that CrewBase seems to expect for args_schema
+# This model has a single field named 'tool_input'
+class CategoryBreakdownToolInput(BaseModel):
+    """Input schema for the CategoryBreakdownTool, structured to satisfy CrewBase validation."""
+    # This 'tool_input' field is added to satisfy CrewBase's specific validation
+    # The actual data the tool needs is nested within this field.
+    tool_input: CategoryBreakdownInputData = Field(description="Container for the tool's input data.")
+
 
 # Define the custom tool by subclassing BaseTool
 class CategoryBreakdownTool(BaseTool):
@@ -20,40 +36,34 @@ class CategoryBreakdownTool(BaseTool):
     description: str = (
         "Analyzes a given text prompt and a topic analysis result to break down the prompt "
         "into distinct categories or sub-topics. Returns a JSON array of strings."
-        "Input should be a string containing the original prompt and the topic analysis result."
-        "Example input format: 'Prompt: [Original Prompt Here]\nTopic Analysis: [Topic Analysis JSON Here]'"
+        "Input should be a JSON object with a single key 'tool_input', whose value is a JSON object "
+        "with 'prompt' (original prompt string) and 'topic_analysis' (Topic Analysis JSON string) keys."
+        "Example input JSON: {'tool_input': {'prompt': 'Original Prompt Here', 'topic_analysis': '{...Topic Analysis JSON...}'}"
     )
+    # Define the input model for the tool, using the nested structure
+    args_schema: type = CategoryBreakdownToolInput
+
     # Add service and llm as attributes that will be passed during instantiation
     lmstudio_service: LMStudioService
     llm: Any # Or a more specific type if available
 
-    def _run(self, tool_input: str) -> str:
+    # The _run method now receives the validated CategoryBreakdownToolInput instance
+    # Access the actual data from the nested 'tool_input' attribute
+    def _run(self, tool_input: CategoryBreakdownToolInput) -> str:
         """
         Runs the category breakdown logic by prompting LMStudio.
         This method is called by the CrewAI agent when the tool is used.
-        Expects input in the format 'Prompt: [Original Prompt Here]\nTopic Analysis: [Topic Analysis JSON Here]'.
+        Receives input as a CategoryBreakdownToolInput instance with nested data.
         """
-        logger.info(f"Executing Category Breakdown Tool with input: {tool_input[:100]}...")
+        logger.info(f"Executing Category Breakdown Tool...")
+        # Access the actual input data from the nested 'tool_input' field
+        input_data = tool_input.tool_input
+        logger.info(f"  Prompt: {input_data.prompt[:100]}...")
+        logger.info(f"  Topic Analysis: {input_data.topic_analysis[:100]}...")
 
-        # Parse the input string to extract prompt and topic analysis
-        # This is a simple parsing based on the expected input format
-        prompt_content = ""
-        topic_analysis_result_str = ""
-        lines = tool_input.split('\n')
-        if lines:
-            if lines[0].startswith("Prompt: "):
-                prompt_content = lines[0][len("Prompt: "):].strip()
-            # Find the line that starts with "Topic Analysis:"
-            topic_analysis_line_index = -1
-            for i, line in enumerate(lines):
-                if line.startswith("Topic Analysis: "):
-                    topic_analysis_line_index = i
-                    topic_analysis_result_str = line[len("Topic Analysis: "):].strip()
-                    break
-
-        if not prompt_content:
-             logger.error("Category Breakdown Tool received input without 'Prompt:' prefix.")
-             return json.dumps({"status": "error", "message": "Tool input missing original prompt."})
+        # The input is now validated and available via the input_data object
+        prompt_content = input_data.prompt
+        topic_analysis_result_str = input_data.topic_analysis
 
         # Construct prompt for LMStudio
         breakdown_prompt = f"""
@@ -134,12 +144,13 @@ class CategoryBreakdownAgent:
 
     # The process method is likely not needed if the task uses the tool directly.
     # Keeping it as a placeholder or for direct calls outside CrewAI flow if necessary.
-    def process(self, tool_input: str) -> CategoryAnalysisResult:
-        """Process the input prompt and break it down into categories (now handled by the tool)."""
+    # Note: If you call this process method directly, you would need to construct
+    # a CategoryBreakdownToolInput object with the nested structure.
+    def process(self, inputs: CategoryBreakdownToolInput) -> CategoryAnalysisResult:
+        """Process the input and break it down into categories (now handled by the tool)."""
         logger.warning("CategoryBreakdownAgent.process called directly. CrewAI task uses the CategoryBreakdownTool.")
         # Example: Call the tool's _run method if needed for direct processing
-        # The tool expects a string input like "Prompt: ...\nTopic Analysis: ..."
-        tool_output_json_string = self.category_breakdown_tool._run(tool_input)
+        tool_output_json_string = self.category_breakdown_tool._run(inputs) # Pass the inputs object
         try:
             # Assuming the tool output is a JSON string representing the categories list
             categories_list = json.loads(tool_output_json_string)
@@ -177,4 +188,3 @@ class CategoryBreakdownAgent:
                 categories=[],
                 analysis_details=f"An unexpected error occurred: {e}"
             )
-

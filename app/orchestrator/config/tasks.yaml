@@ -4,38 +4,60 @@ topic_analysis_task:
   description: |
     Use the 'Topic Analysis Tool' to analyze the input prompt.
     The tool input is the original prompt: {prompt}
-    Your final answer MUST be the JSON output provided by the 'Topic Analysis Tool'.
+    --
+    Your final answer MUST be the JSON output provided by the 'Topic Analysis Tool'. Do NOT include any other text or formatting in your final answer.
   expected_output: "A JSON object containing core topics, domain, complexity, and key entities."
   agent: "topic_analysis"
 
 category_breakdown_task:
   description: |
     Use the 'Category Breakdown Tool' to break down the original prompt into categories.
-    The tool input MUST be formatted exactly as:
-    Prompt: {prompt}
-    Topic Analysis: {output of topic_analysis_task}
-    Your final answer MUST be the JSON array of strings provided by the 'Category Breakdown Tool'.
+    The Action Input for the tool MUST be ONLY the following JSON object.
+    ```json
+    {{
+      "tool_input": {{
+        "prompt": "{prompt}",
+        "topic_analysis": "{output of topic_analysis_task}"
+      }}
+    }}
+    ```
+    --
+    Your final answer MUST be the JSON array of strings provided by the 'Category Breakdown Tool'. Do NOT include any other text or formatting in your final answer.
   expected_output: "A JSON array of strings, where each string is a identified category or sub-topic."
   agent: "category_breakdown"
 
 iterative_refinement_task:
   description: |
     Use the 'Iterative Refinement Tool' to refine the original prompt.
-    The tool input MUST be formatted exactly as:
-    Prompt: {prompt}
-    Topic Analysis: {output of topic_analysis_task}
-    Category Breakdown: {output of category_breakdown_task}
-    Your final answer MUST be the refined prompt string provided by the 'Iterative Refinement Tool'.
+    The Action Input for the tool MUST be ONLY the following JSON object.
+    ```json
+    {{
+      "tool_input": {{
+        "prompt": "{prompt}",
+        "topic_analysis": "{output of topic_analysis_task}",
+        "category_breakdown": "{output of category_breakdown_task}"
+      }}
+    }}
+    ```
+    --
+    Your final answer MUST be the refined prompt string provided by the 'Iterative Refinement Tool'. Do NOT include any other text or formatting in your final answer.
   expected_output: "A significantly improved and more detailed version of the original prompt."
   agent: "iterative_refinement"
 
 research_integration_task:
   description: |
     Use the 'Research Integration Tool' to integrate findings and context into the refined prompt.
-    The tool input MUST be formatted exactly as:
-    Refined Prompt: {output of iterative_refinement_task}
-    Original Prompt: {prompt}
-    Additional Context: {context}
-    Your final answer MUST be the final enhanced prompt string provided by the 'Research Integration Tool'.
+    **CRITICAL INSTRUCTION: The Action Input for the tool MUST be ONLY the following JSON object. You MUST use the exact variables provided ({output of iterative_refinement_task}, {prompt}, {context}) and NOT any information from previous turns or your own memory.**
+    ```json
+    {{
+      "tool_input": {{
+        "refined_prompt": "{output of iterative_refinement_task}",
+        "original_prompt": "{prompt}",
+        "additional_context": "{context}"
+      }}
+    }}
+    ```
+    --
+    Your final answer MUST be the RAW string output provided directly by the 'Research Integration Tool'. Do NOT wrap it in JSON or add any other text.
   expected_output: "The final, enhanced prompt incorporating research findings and all previous refinements."
   agent: "research_integration"

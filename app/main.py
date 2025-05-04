@@ -12,6 +12,11 @@ from typing import Dict, List, Any
 from app.models.prompt import PromptRequest
 from app.orchestrator.crew import PromptEnhancerCrew
 
+from app.orchestrator.crew import PromptEnhancerCrew
+
+# Configure logger for this module
+logger = logging.getLogger(__name__)
+
 # Initialize FastAPI app
 app = FastAPI(
     title="AI-Driven Prompt Enhancer API",
