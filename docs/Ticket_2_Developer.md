@@ -59,25 +59,27 @@ Below is an example project structure to help organize your code:
 
 Project/
 │
-├── orchestration/
-│   ├── init.py
-│   └── orchestrator.py     # Core orchestration logic.
-│   └── agents/          # Contains stubs or implementations for each agent.
-│       ├── init.py
-│       ├── topic_analysis_agent.py
-│       ├── category_breakdown_agent.py
-│       ├── iterative_refinement_agent.py
-│       └── research_integration_agent.py
-│
-├── api/
-│   ├── init.py
-│   └── endpoints.py     # API endpoints for user interaction and monitoring.
-│
+├── src/
+│   ├── orchestration/
+│   │   ├── init.py
+│   │   └── orchestrator.py     # Core orchestration logic.
+│   │   └── agents/          # Contains stubs or implementations for each agent.
+│   │       ├── init.py
+│   │       ├── topic_analysis_agent.py
+│   │       ├── category_breakdown_agent.py
+│   │       ├── iterative_refinement_agent.py
+│   │       └── research_integration_agent.py
+│   │
+│   ├── api/
+│   │   ├── init.py
+│   │   └── endpoints.py     # API endpoints for user interaction and monitoring.
+│   │
 ├── tests/          # Integration/unit tests.
 │   ├── init.py
 │   └── test_orchestrator.py
 │
 └── requirements.txt
+
 
 Feel free to adjust the structure based on your team’s conventions.
 
