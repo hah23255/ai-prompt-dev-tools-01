@@ -1,9 +1,21 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI-Driven Prompt Enhancer</title>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        header, main > div { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
+        textarea { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .status-container { display: flex; flex-wrap: wrap; gap: 10px; }
+        .status-item { display: flex; align-items: center; background-color: #f0f0f0; padding: 8px 12px; border-radius: 20px; }
+        .status-icon { margin-right: 8px; font-size: 1.2em; }
+        #enhanced-prompt-output { white-space: pre-wrap; background-color: #f9f9f9; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 50px; }
+    </style>
 </head>
 <body>
     <div>
@@ -11,43 +23,43 @@
             <h1>AI-Driven Prompt Enhancer</h1>
             <p>Automatically enhance your prompts with specialized AI agents</p>
         </header>
-        
+
         <main>
             <div>
                 <h2>Enter Your Prompt</h2>
                 <textarea id="prompt-text" rows="6" placeholder="Enter your prompt here..."></textarea>
                 <button id="enhance-btn">Enhance Prompt</button>
             </div>
-            
+
             <div>
                 <h2>Processing Status</h2>
-                <div>
-                    <div>
-                        <div>⏳</div>
+                <div class="status-container">
+                    <div class="status-item">
+                        <div class="status-icon" data-status-for="topic_analysis">⏳</div>
                         <div>Topic Analysis</div>
                     </div>
-                    <div>
-                        <div>⏳</div>
+                    <div class="status-item">
+                        <div class="status-icon" data-status-for="category_breakdown">⏳</div>
                         <div>Category Breakdown</div>
                     </div>
-                    <div>
-                        <div>⏳</div>
+                    <div class="status-item">
+                        <div class="status-icon" data-status-for="iterative_refinement">⏳</div>
                         <div>Iterative Refinement</div>
                     </div>
-                    <div>
-                        <div>⏳</div>
+                    <div class="status-item">
+                        <div class="status-icon" data-status-for="research_integration">⏳</div>
                         <div>Research Integration</div>
                     </div>
                 </div>
             </div>
-            
+
             <div>
                 <h2>Enhanced Prompt</h2>
-                <div></div>
+                <div id="enhanced-prompt-output"></div>
             </div>
         </main>
     </div>
-    
+
     <script src="/static/js/main.js"></script>
 </body>
 </html>

@@ -22,7 +22,11 @@ from app.agents.research_integration import ResearchIntegrationAgent
 from app.models.prompt import PromptRequest
 
 # Define the path to the configuration directory
-CONFIG_DIR = Path(__file__).parent.parent.parent / "config"
+# This path should now be relative to the crew.py file itself
+# and point to the config directory *within* app/orchestrator/
+# Updated CONFIG_DIR to be relative to the current file's directory
+CONFIG_DIR = Path(__file__).parent / "config"
+print(f"CONFIG_DIR: {CONFIG_DIR}") # Print the actual path being used
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
@@ -47,6 +51,11 @@ class PromptEnhancerCrew:
             with open(config_path, "r") as f:
                 return yaml.safe_load(f)
         except FileNotFoundError:
+            # Log a warning instead of raising an error here, as CrewBase
+            # might handle missing files differently or you might want
+            # to proceed with defaults if the files are optional.
+            # However, given the previous error, these files are expected.
+            # Re-raising is probably correct if they are mandatory.
             logger.error(f"Configuration file not found: {config_path}")
             raise # Re-raise the exception
         except yaml.YAMLError as e:
@@ -72,8 +81,9 @@ class PromptEnhancerCrew:
         # Return an instance of the new wrapper class
         return LMStudioLiteLLMWrapper(lmstudio_service=lmstudio_service)
 
+    # Renamed agent methods to match expected names in tasks.yaml
     @agent
-    def topic_analysis_agent(self) -> Agent:
+    def topic_analysis(self) -> Agent: # Renamed from topic_analysis_agent
         """Creates and returns the Topic Analysis Agent."""
         agents_config = self._load_config("agents")
         agent_config = agents_config.get("topic_analysis", {})
@@ -85,7 +95,7 @@ class PromptEnhancerCrew:
         return custom_agent_wrapper.agent
 
     @agent
-    def category_breakdown_agent(self) -> Agent:
+    def category_breakdown(self) -> Agent: # Renamed from category_breakdown_agent
         """Creates and returns the Category Breakdown Agent."""
         agents_config = self._load_config("agents")
         agent_config = agents_config.get("category_breakdown", {})
@@ -97,7 +107,7 @@ class PromptEnhancerCrew:
         return custom_agent_wrapper.agent
 
     @agent
-    def iterative_refinement_agent(self) -> Agent:
+    def iterative_refinement(self) -> Agent: # Renamed from iterative_refinement_agent
         """Creates and returns the Iterative Refinement Agent."""
         agents_config = self._load_config("agents")
         agent_config = agents_config.get("iterative_refinement", {})
@@ -109,7 +119,7 @@ class PromptEnhancerCrew:
         return custom_agent_wrapper.agent
 
     @agent
-    def research_integration_agent(self) -> Agent:
+    def research_integration(self) -> Agent: # Renamed from research_integration_agent
         """Creates and returns the Research Integration Agent."""
         agents_config = self._load_config("agents")
         agent_config = agents_config.get("research_integration", {})
@@ -129,7 +139,7 @@ class PromptEnhancerCrew:
         return Task(
             description=task_config.get("description", "Default topic analysis description."), # <-- Pass description directly
             expected_output=task_config.get("expected_output", "A JSON object containing core topics, domain, complexity, and key entities."), # <-- Pass expected_output directly
-            agent=self.topic_analysis_agent(), # Reference the agent method
+            agent=self.topic_analysis(), # Reference the RENAMED agent method
             # Pass other config items if needed, e.g., context, tools
             # context=[...],
             # tools=[...],
@@ -144,7 +154,7 @@ class PromptEnhancerCrew:
         return Task(
             description=task_config.get("description", "Default category breakdown description."), # <-- Pass description directly
             expected_output=task_config.get("expected_output", "A list of categories or sub-topics identified in the prompt."), # <-- Pass expected_output directly
-            agent=self.category_breakdown_agent(), # Reference the agent method
+            agent=self.category_breakdown(), # Reference the RENAMED agent method
             # Pass other config items if needed
         )
 
@@ -156,7 +166,7 @@ class PromptEnhancerCrew:
         return Task(
             description=task_config.get("description", "Default iterative refinement description."), # <-- Pass description directly
             expected_output=task_config.get("expected_output", "A refined version of the original prompt."), # <-- Pass expected_output directly
-            agent=self.iterative_refinement_agent(), # Reference the agent method
+            agent=self.iterative_refinement(), # Reference the RENAMED agent method
             # Pass other config items if needed
             # context=[self.topic_analysis_task(), self.category_breakdown_task()] # Example: Pass previous tasks as context
             # tools=[...],
@@ -171,7 +181,7 @@ class PromptEnhancerCrew:
         return Task(
             description=task_config.get("description", "Default research integration description."), # <-- Pass description directly
             expected_output=task_config.get("expected_output", "The refined prompt with relevant research findings integrated."), # <-- Pass expected_output directly
-            agent=self.research_integration_agent(), # Reference the agent method
+            agent=self.research_integration(), # Reference the RENAMED agent method
             # Pass other config items if needed
             # context=[self.iterative_refinement_task()] # Example: Pass previous task as context
             # tools=[self.research_tool()] # Example: If you have a research tool method
@@ -191,10 +201,10 @@ class PromptEnhancerCrew:
 
         return Crew(
             agents=[
-                self.topic_analysis_agent(), # Call the agent methods to get agent instances
-                self.category_breakdown_agent(),
-                self.iterative_refinement_agent(),
-                self.research_integration_agent()
+                self.topic_analysis(), # Call the RENAMED agent methods to get agent instances
+                self.category_breakdown(),
+                self.iterative_refinement(),
+                self.research_integration()
             ],
             tasks=tasks_list, # Use the ordered list of tasks
             process=Process.sequential, # Or Process.hierarchical, etc.
@@ -221,6 +231,8 @@ class PromptEnhancerCrew:
             # Extract the final result string from the CrewOutput object
             # Assuming the final result is available as a string attribute, e.g., .result or similar
             # You might need to inspect the actual CrewOutput object structure if this is incorrect
+            # CrewAI kickoff returns a string or the result of the last task depending on version/config
+            # Let's assume it's the final output string for now.
             enhanced_prompt_result = str(crew_output) # Convert to string for serialization
 
             # Accessing intermediate results requires agents/tasks to store them
