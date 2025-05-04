@@ -15,3 +15,13 @@ class TopicAnalysisResult(BaseResponse):
     key_entities: List[str]
     
 # Create similar models for other agent outputs
+
+class CategoryAnalysisResult(BaseResponse):
+    """Result from Category Breakdown Agent"""
+    categories: List[str]
+    analysis_details: str
+
+class IterativeRefinementResult(BaseResponse):
+    """Result from Iterative Refinement Agent"""
+    refined_prompt: str
+    refinement_details: str
