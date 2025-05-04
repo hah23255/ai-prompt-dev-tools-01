@@ -8,3 +8,13 @@
 [2025-05-03 09:39:15] - User requested an update to the Memory Bank (UMB).
 [2025-05-03 21:44:49] - Updated active context for steps 1 and 2 in the Implementation Plan.
 [2025-05-03 21:46:23] - Updated active context for Step 2 completion.
+[2025-05-04 11:32:55] Created requirements.txt with packages:
+- crewai
+- fastapi
+- uvicorn
+- pydantic
+- pytest
+
+The user can now install these packages using pip by running the command:
+$ pip install -r requirements.txt
+[2025-05-04 11:32:55] Created requirements.txt with packages
