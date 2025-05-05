@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 import uuid
@@ -63,7 +64,16 @@ async def enhance_prompt(prompt_data: Dict[str, Any]):
         # Process the prompt using CrewAI
         start_time = time.time()
         # The enhance_prompt method in crew.py now calls crew.kickoff
-        result = prompt_enhancer.enhance_prompt(prompt_request)
+        # Get the crew instance and kickoff
+        crew_instance = prompt_enhancer.get_crew()
+        # Run the potentially blocking kickoff in a separate thread
+        result = await asyncio.to_thread(
+            crew_instance.kickoff,
+            inputs={
+                "prompt": prompt_request.content,
+                "context": prompt_request.context
+            }
+        )
         processing_time = time.time() - start_time
 
         # Return the enhanced prompt
@@ -71,8 +81,8 @@ async def enhance_prompt(prompt_data: Dict[str, Any]):
             "request_id": request_id,
             "status": "success",
             "processing_time": processing_time,
-            "enhanced_prompt": result["enhanced_prompt"],
-            "processing_details": result["processing_details"]
+            "enhanced_prompt": str(result), # Convert CrewOutput to string for the final prompt
+            "processing_details": {"crew_execution": "Completed successfully."} # Update processing details
         }
     except ValidationError as e:
         return JSONResponse(
@@ -116,14 +126,23 @@ async def websocket_enhance_prompt(websocket: WebSocket):
 
                 # Process with CrewAI
                 # The enhance_prompt method in crew.py now calls crew.kickoff
-                result = prompt_enhancer.enhance_prompt(prompt_request)
+                # Get the crew instance and kickoff
+                crew_instance = prompt_enhancer.get_crew()
+                # Run the potentially blocking kickoff in a separate thread
+                result = await asyncio.to_thread(
+                    crew_instance.kickoff,
+                    inputs={
+                        "prompt": prompt_request.content,
+                        "context": prompt_request.context
+                    }
+                )
 
                 # Send the final result
                 await websocket.send_json({
                     "status": "complete",
                     "request_id": request_id,
-                    "enhanced_prompt": result["enhanced_prompt"],
-                    "processing_details": result["processing_details"]
+                    "enhanced_prompt": str(result), # Convert CrewOutput to string
+                    "processing_details": {"crew_execution": "Completed successfully."} # Update processing details
                 })
 
             except ValidationError as e:

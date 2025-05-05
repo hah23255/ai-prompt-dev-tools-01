@@ -7,7 +7,7 @@ topic_analysis_task:
     --
     Your final answer MUST be the JSON output provided by the 'Topic Analysis Tool'. Do NOT include any other text or formatting in your final answer.
   expected_output: "A JSON object containing core topics, domain, complexity, and key entities."
-  agent: "topic_analysis"
+  agent: "topic_analysis_agent"
 
 category_breakdown_task:
   description: |
@@ -24,7 +24,7 @@ category_breakdown_task:
     --
     Your final answer MUST be the JSON array of strings provided by the 'Category Breakdown Tool'. Do NOT include any other text or formatting in your final answer.
   expected_output: "A JSON array of strings, where each string is a identified category or sub-topic."
-  agent: "category_breakdown"
+  agent: "category_breakdown_agent"
 
 iterative_refinement_task:
   description: |
@@ -42,7 +42,7 @@ iterative_refinement_task:
     --
     Your final answer MUST be the refined prompt string provided by the 'Iterative Refinement Tool'. Do NOT include any other text or formatting in your final answer.
   expected_output: "A significantly improved and more detailed version of the original prompt."
-  agent: "iterative_refinement"
+  agent: "iterative_refinement_agent"
 
 research_integration_task:
   description: |
@@ -60,4 +60,4 @@ research_integration_task:
     --
     Your final answer MUST be the RAW string output provided directly by the 'Research Integration Tool'. Do NOT wrap it in JSON or add any other text.
   expected_output: "The final, enhanced prompt incorporating research findings and all previous refinements."
-  agent: "research_integration"
+  agent: "research_integration_agent"
