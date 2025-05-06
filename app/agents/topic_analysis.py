@@ -3,11 +3,11 @@ import yaml
 import logging
 import json
 from crewai import Agent
-from crewai.tools import BaseTool # Import BaseTool
+from crewai.tools import BaseTool
 from crewai.project import CrewBase, agent, task, crew # Keep if needed for CrewBase context, but likely not in agent file
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union # Import Union for type hinting
 from pathlib import Path
-from pydantic import ValidationError, BaseModel, Field # Import BaseModel and Field
+from pydantic import ValidationError, BaseModel, Field
 from app.services.lmstudio import LMStudioService, LMStudioLiteLLMWrapper
 
 # Configure logger for this module
@@ -41,17 +41,41 @@ class TopicAnalysisTool(BaseTool):
     lmstudio_service: LMStudioService
     llm: Any # Or a more specific type if available
 
-    def _run(self, tool_input: TopicAnalysisToolInput) -> str:
+    # Update the _run method to accept Union[TopicAnalysisToolInput, Dict[str, Any]]
+    def _run(self, tool_input: Union[TopicAnalysisToolInput, Dict[str, Any]]) -> str:
         """
         Runs the topic analysis logic by prompting LMStudio.
         This method is called by the CrewAI agent when the tool is used.
-        Receives input as a TopicAnalysisToolInput instance with nested data.
+        Handles input as either a Pydantic model instance or a dictionary.
         """
         logger.info(f"Executing Topic Analysis Tool...")
-        # Access the actual input data from the nested 'tool_input' field
-        input_data = tool_input.tool_input
-        text_to_analyze = input_data.text_to_analyze
-        logger.info(f"  Text to Analyze: {text_to_analyze[:100]}...")
+
+        # --- Safely extract text_to_analyze from tool_input ---
+        text_to_analyze = ""
+        try:
+            if isinstance(tool_input, TopicAnalysisToolInput):
+                # Input is the expected Pydantic model
+                text_to_analyze = tool_input.tool_input.text_to_analyze
+                logger.info("Tool input is Pydantic model.")
+            elif isinstance(tool_input, dict):
+                # Input is a raw dictionary - attempt to access nested keys
+                text_to_analyze = tool_input.get('tool_input', {}).get('text_to_analyze', '')
+                logger.info("Tool input is a dictionary.")
+            else:
+                logger.error(f"Tool received unexpected input type: {type(tool_input)}")
+                return json.dumps({"status": "error", "message": f"Tool received unexpected input type: {type(tool_input)}"})
+
+            if not text_to_analyze:
+                 logger.error("Tool received empty text_to_analyze.")
+                 return json.dumps({"status": "error", "message": "Tool received empty text to analyze."})
+
+            logger.info(f"  Text to Analyze: {text_to_analyze[:100]}...")
+
+        except Exception as e:
+            logger.error(f"Error extracting text_to_analyze from tool input: {e}")
+            return json.dumps({"status": "error", "message": f"Error processing tool input: {e}"})
+        # --- End of input extraction ---
+
 
         # Construct prompt for LMStudio
         analysis_prompt = f"""
@@ -71,9 +95,13 @@ Example output: {{"core_topics": ["topic1", "topic2"], "domain": "example", "com
 
         try:
             # Use the LMStudio service instance passed to the tool
-            # Assuming generate_completion exists and takes a prompt string
             response = self.lmstudio_service.generate_completion(analysis_prompt)
             logger.info(f"Received response from LMStudio (first 50 chars): {response[:50]}...")
+
+            # --- Robustly handle and parse the LLM response ---
+            if not response or not isinstance(response, str):
+                 logger.error("LMStudio returned None, empty, or non-string response.")
+                 return json.dumps({"status": "error", "message": "Tool received empty or invalid response from LLM."})
 
             # Attempt to parse the response to ensure it's valid JSON before returning
             try:
@@ -87,6 +115,7 @@ Example output: {{"core_topics": ["topic1", "topic2"], "domain": "example", "com
                     parsed_json = json.loads(json_string)
                     if isinstance(parsed_json, dict):
                         # Optional: Validate keys in parsed_json if necessary
+                        logger.info("Successfully parsed JSON from LLM response.")
                         return json_string # Return the cleaned JSON object string
                     else:
                         logger.error(f"LMStudio returned valid JSON but not an object: {response}")
@@ -99,6 +128,7 @@ Example output: {{"core_topics": ["topic1", "topic2"], "domain": "example", "com
                 logger.error(f"LMStudio returned invalid JSON from tool: {response}")
                 # Return an error indicator or formatted message if JSON is invalid
                 return json.dumps({"status": "error", "message": "Tool received invalid JSON from LLM", "raw_response": response})
+            # --- End of response handling ---
 
         except Exception as e:
             logger.error(f"Error calling LMStudio service from tool: {e}")
