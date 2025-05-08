@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-Driven Prompt Enhancer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #4895ef;
+            --accent-color: #f72585;
+            --success-color: #06d6a0;
+            --error-color: #ef476f;
+            /* Updated background gradient to use RGBA for transparency */
+            --bg-gradient: linear-gradient(135deg, rgba(224, 195, 252, 0.3), rgba(142, 197, 252, 0.3)); /* Increased opacity slightly for better visibility */
+            --primary-dark: #3a56d4;
+            --light-bg: #f8f9fa;
+            --dark-text: #2b2b2b;
+            --light-text: #666;
+            --border-radius: 12px;
+            --box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+            /* Ant color - now fully opaque black */
+            --ant-color: rgba(13, 235, 43, 0.514); /* Fully opaque black */
+        }
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        line-height: 1.6;
+        color: var(--dark-text);
+        background-color: #f5f7fa; /* Light background */
+        padding: 20px;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        position: relative; /* Needed for absolute positioning of canvas */
+        overflow: hidden; /* Hide body scrollbars */
+    }
+
+    .container {
+        max-width: 1200px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 30px;
+        /* Now using the semi-transparent gradient variable */
+        background: var(--bg-gradient);
+        border-radius: 20px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        position: relative; /* Ensure container is above background effects */
+        z-index: 1; /* Explicitly set z-index higher than background effects */
+        display: flex; /* Use flexbox to arrange header and main content */
+        flex-direction: column; /* Stack header and main content vertically */
+        gap: 30px; /* Add space between the header box and main content */
+    }
+
+    .app-header {
+        text-align: center;
+        /* Removed margin-bottom as gap is handled by container flexbox */
+    }
+
+    .app-header h1 {
+        font-size: 2.5rem;
+        color: var(--primary-color);
+        margin-bottom: 10px;
+    }
+
+    .app-header p {
+        font-size: 1.1rem;
+        color: var(--light-text);
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .main-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        /* Removed padding-top as gap handles space from header */
+        padding-bottom: 30px;
+    }
+
+    @media (max-width: 768px) {
+        .main-content {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .card {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        padding: 25px;
+        transition: var(--transition);
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #eee;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .card h2 {
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+    }
+
+    .card h2 i {
+        margin-right: 10px;
+    }
+
+    textarea {
+        width: 100%;
+        min-height: 200px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: var(--border-radius);
+        font-family: inherit;
+        resize: vertical;
+        transition: var(--transition);
+        margin-bottom: 20px;
+        flex-grow: 1;
+        font-size: 16px;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        color: white;
+        border: none;
+        border-radius: var(--border-radius);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        text-align: center;
+        align-self: flex-start;
+        box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 6px 20px rgba(67, 97, 238, 0.4); /* Adjusted shadow */
+    }
+
+    .status-container {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .status-item {
+        background: #f9f9f9;
+        border-left: 5px solid var(--primary-color);
+        padding: 12px 15px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .status-item:hover {
+        background: #fafafa;
+        transform: translateX(5px);
+    }
+
+    .status-icon {
+        font-size: 1.2rem;
+        margin-right: 12px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: #e0e0e0;
+        color: var(--light-text);
+    }
+
+    .status-icon.active {
+        background-color: #ffd166;
+        color: #333;
+    }
+
+    .status-icon.completed {
+        background-color: var(--success-color);
+        color: white;
+    }
+
+    .status-icon.error {
+        background-color: var(--error-color);
+        color: white;
+    }
+
+    .status-text {
+        font-size: 0.95rem;
+    }
+
+    .output-container {
+        background-color: var(--light-bg);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        min-height: 200px;
+        max-height: 500px;
+        overflow-y: auto;
+        word-break: break-word;
+        font-size: 14px;
+    }
+
+    #enhanced-prompt-output {
+        white-space: pre-wrap;
+        font-family: 'Courier New', Courier, monospace;
+        color: var(--dark-text);
+    }
+
+    .notification {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        background-color: #4caf50;
+        color: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .notification.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .tabs {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: var(--transition);
+        color: var(--light-text);
+    }
+
+    .tab.active {
+        border-bottom-color: var(--primary-color);
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Background Effects CSS */
+    .background-effects {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: -1; /* Placed behind the container */
+    }
+
+    /* Canvas for ant animation */
+    #antsCanvas {
+        display: block;
+        position: absolute; /* Position canvas within background-effects */
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    </style>
+</head>
+<body>
+    <div class="background-effects">
+        <canvas id="antsCanvas"></canvas>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <header class="app-header">
+                <h1>AI-Driven Prompt Enhancer</h1>
+                <p>Automatically enhance your prompts with specialized AI agents to improve clarity, structure, and effectiveness.</p>
+            </header>
+        </div>
+
+        <main class="main-content">
+            <div class="card">
+                <h2><i class="fas fa-pen-fancy"></i> Create Your Prompt</h2>
+
+                <div class="tabs">
+                    <div class="tab active" data-tab="basic">Basic</div>
+                    <div class="tab" data-tab="advanced">Advanced</div>
+                </div>
+
+                <div class="tab-content active" id="basic-tab">
+                    <textarea id="prompt-text" placeholder="Enter your prompt here... Describe what you want to achieve, who your audience is, and any specific requirements."></textarea>
+                </div>
+
+                <div class="tab-content" id="advanced-tab">
+                    <textarea id="prompt-text-advanced" placeholder="Enter your advanced prompt here... Use structure to guide the AI.\n\n# Topic: Briefly state the main subject.\n# Audience: Describe who the output is for.\n# Constraints: List any limitations (length, format, style).\n\n# Instructions: Provide detailed steps or requirements."></textarea>
+                </div>
+
+                <button id="enhance-btn" class="btn">Enhance Prompt</button>
+            </div>
+
+            <div class="card">
+                <h2><i class="fas fa-cogs"></i> Processing Status</h2>
+
+                <div class="status-container">
+                    <div class="status-item">
+                        <div class="status-icon" data-status-for="send_prompt">⏳</div>
+                        <div class="status-text">Sending Prompt to Backend</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-icon" data-status-for="backend_processing">⏳</div>
+                        <div class="status-text">Backend Processing (CrewAI)</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-icon" data-status-for="receive_response">⏳</div>
+                        <div class="status-text">Receiving Enhanced Prompt</div>
+                    </div>
+                </div>
+
+                <h2><i class="fas fa-lightbulb"></i> Enhanced Prompt</h2>
+                <div id="enhanced-prompt-output" class="output-container">
+                    Your enhanced prompt will appear here after processing...
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            const statusIcons = document.querySelectorAll('.status-icon');
+            const enhanceBtn = document.getElementById('enhance-btn');
+            const promptTextInput = document.getElementById('prompt-text');
+            const promptTextAdvancedInput = document.getElementById('prompt-text-advanced');
+            const enhancedPromptOutput = document.getElementById('enhanced-prompt-output');
+            const notification = document.getElementById('notification');
+
+            // Backend endpoint
+            const backendEndpoint = 'http://localhost:8000/api/enhance-prompt'; // Make sure this is correct
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.getAttribute('data-tab');
+
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    document.getElementById(tabId + '-tab').classList.add('active');
+                });
+            });
+
+            function updateProcessingStatus(status, id) {
+                const icon = document.querySelector(`.status-icon[data-status-for="${id}"]`);
+                const textElement = icon ? icon.nextElementSibling : null;
+
+                if (!icon) return;
+
+                icon.className = 'status-icon'; // Reset classes
+                icon.innerHTML = ''; // Clear icon
+
+                if (status === 'processing') {
+                    icon.classList.add('active');
+                    icon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    if (textElement) textElement.textContent = getProcessingStatusText(id, 'processing');
+                } else if (status === 'completed') {
+                    icon.classList.add('completed');
+                    icon.innerHTML = '<i class="fas fa-check"></i>';
+                    if (textElement) textElement.textContent = getProcessingStatusText(id, 'completed');
+                } else if (status === 'error') {
+                    icon.classList.add('error');
+                    icon.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
+                    if (textElement) textElement.textContent = getProcessingStatusText(id, 'error');
+                } else { // initial state
+                    icon.innerHTML = '⏳';
+                    if (textElement) textElement.textContent = getProcessingStatusText(id, 'initial');
+                }
+            }
+
+            function getProcessingStatusText(id, status) {
+                switch (id) {
+                    case 'send_prompt':
+                        return status === 'initial' ? 'Sending Prompt to Backend' :
+                               status === 'processing' ? 'Sending Prompt...' :
+                               status === 'completed' ? 'Prompt Sent' :
+                               'Sending Failed';
+                    case 'backend_processing':
+                        return status === 'initial' ? 'Backend Processing (CrewAI)' :
+                               status === 'processing' ? 'Processing (CrewAI)...' :
+                               status === 'completed' ? 'Processing Complete' :
+                               'Processing Error';
+                    case 'receive_response':
+                        return status === 'initial' ? 'Receiving Enhanced Prompt' :
+                               status === 'processing' ? 'Receiving Response...' :
+                               status === 'completed' ? 'Response Received' :
+                               'Receiving Error';
+                    default:
+                        return 'Unknown Status';
+                }
+            }
+
+            function showNotification(message, type = 'success') {
+                notification.textContent = message;
+                if (type === 'error') {
+                    notification.style.backgroundColor = '#ef476f';
+                } else {
+                    notification.style.backgroundColor = '#4caf50';
+                }
+                notification.classList.add('show');
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            }
+
+            enhanceBtn.addEventListener('click', async function() {
+                const activeTabContent = document.querySelector('.tab-content.active');
+                let prompt = '';
+                if (activeTabContent.id === 'basic-tab') {
+                    prompt = promptTextInput.value.trim();
+                } else if (activeTabContent.id === 'advanced-tab') {
+                    prompt = promptTextAdvancedInput.value.trim();
+                }
+
+                if (!prompt) {
+                    showNotification('Please enter a prompt first!', 'error');
+                    return;
+                }
+
+                // Reset status icons
+                statusIcons.forEach(icon => updateProcessingStatus('initial', icon.getAttribute('data-status-for')));
+                enhancedPromptOutput.textContent = 'Processing...';
+                enhanceBtn.disabled = true; // Disable button during processing
+
+                try {
+                    updateProcessingStatus('processing', 'send_prompt');
+
+                    const response = await fetch(backendEndpoint, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ prompt: prompt })
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Backend error: ${response.status} ${response.statusText} - ${errorText}`);
+                    }
+
+                    updateProcessingStatus('completed', 'send_prompt');
+                    updateProcessingStatus('processing', 'backend_processing');
+
+                    const result = await response.json();
+
+                    updateProcessingStatus('completed', 'backend_processing');
+                    updateProcessingStatus('processing', 'receive_response');
+
+                    if (result && result.enhanced_prompt) {
+                        enhancedPromptOutput.textContent = result.enhanced_prompt;
+                        updateProcessingStatus('completed', 'receive_response');
+                        showNotification('Prompt enhanced successfully!');
+                    } else {
+                        throw new Error('Unexpected response format from backend.');
+                    }
+
+                } catch (error) {
+                    console.error('Error enhancing prompt:', error);
+                    enhancedPromptOutput.textContent = `Error: ${error.message}`;
+                    // Set all subsequent statuses to error if one fails
+                    let errorOccurred = false;
+                    statusIcons.forEach(icon => {
+                        const statusId = icon.getAttribute('data-status-for');
+                        if (statusId === 'send_prompt' && icon.classList.contains('processing')) {
+                             updateProcessingStatus('error', statusId);
+                             errorOccurred = true;
+                        } else if (statusId === 'backend_processing' && (icon.classList.contains('processing') || errorOccurred)) {
+                             updateProcessingStatus('error', statusId);
+                             errorOccurred = true;
+                        } else if (statusId === 'receive_response' && (icon.classList.contains('processing') || errorOccurred)) {
+                             updateProcessingStatus('error', statusId);
+                             errorOccurred = true;
+                        }
+                    });
+                    showNotification('Error enhancing prompt!', 'error');
+                } finally {
+                    enhanceBtn.disabled = false; // Re-enable button
+                }
+            });
+
+            // Initialize status icons on load
+            statusIcons.forEach(icon => updateProcessingStatus('initial', icon.getAttribute('data-status-for')));
+
+            // --- Canvas Ants Animation Script ---
+            const canvas = document.getElementById('antsCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Resize canvas to fill the window
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas(); // Initial resize
+
+            // Ant properties
+            class Ant {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.size = 5 + Math.random() * 3; // Random size between 5-8px
+                    this.speed = 1 + Math.random() * 1; // Speed between 1-2 px/frame
+                    this.angle = Math.random() * Math.PI * 2; // Random direction
+                    this.turnSpeed = 0.1; // How quickly they can change direction
+                    this.wanderAmount = 0.2; // How much they randomly wander
+                }
+
+                update() {
+                    // Simple wandering behavior
+                    this.angle += (Math.random() - 0.5) * this.wanderAmount;
+
+                    // Keep angle within a reasonable range
+                    if (this.angle > Math.PI * 2) this.angle -= Math.PI * 2;
+                    if (this.angle < 0) this.angle += Math.PI * 2;
+
+
+                    // Move in current direction
+                    this.x += Math.cos(this.angle) * this.speed;
+                    this.y += Math.sin(this.angle) * this.speed;
+
+                    // Bounce off edges with a slight random turn
+                    if (this.x < 0 || this.x > canvas.width) {
+                        this.angle = Math.PI - this.angle + (Math.random() - 0.5) * this.turnSpeed * 5; // Larger random turn on bounce
+                        this.x = this.x < 0 ? 0 : canvas.width; // Prevent sticking to the edge
+                    }
+                    if (this.y < 0 || this.y > canvas.height) {
+                        this.angle = -this.angle + (Math.random() - 0.5) * this.turnSpeed * 5; // Larger random turn on bounce
+                        this.y = this.y < 0 ? 0 : canvas.height; // Prevent sticking to the edge
+                    }
+                }
+
+                draw() {
+                    ctx.beginPath();
+                    ctx.fillStyle = 'black'; // Fully opaque black
+                    ctx.strokeStyle = 'transparent'; // Explicitly set stroke to transparent
+
+                    // Save the current canvas state (translation, rotation, etc.)
+                    ctx.save();
+
+                    // Translate the canvas origin to the ant's position
+                    ctx.translate(this.x, this.y);
+
+                    // Rotate the canvas by the ant's angle
+                    ctx.rotate(this.angle);
+
+                    // Draw the rectangle for the ant body. We draw it centered around the origin (0,0)
+                    // The rectangle's top-left corner will be at (-width/2, -height/2)
+                    const antWidth = this.size;
+                    const antHeight = this.size * 2.5; // Increased height to make them more elongated
+                    ctx.fillRect(-antWidth / 400, -antHeight / 400, antWidth, antHeight);
+
+                    // Restore the canvas state to what it was before translate and rotate
+                    ctx.restore();
+                }
+            }
+
+            // Create ants array
+            const ants = [];
+            const numberOfAnts = 200; // Increased number of ants
+            for (let i = 0; i < numberOfAnts; i++) {
+                ants.push(new Ant());
+            }
+
+            // Animation loop
+            function animateAnts() {
+                // Clear canvas with fully opaque background color
+                // Using the body background color for clearing
+                ctx.fillStyle = '#f5f7fa'; /* Match body background #f5f7fa (fully opaque) */
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Update and draw each ant
+                ants.forEach(ant => {
+                    ant.update();
+                    ant.draw();
+                });
+
+                requestAnimationFrame(animateAnts);
+            }
+
+            animateAnts(); // Start animation
+
+        });
+    </script>
+</body>
+</html>
