@@ -8,3 +8,15 @@ venv/
 Thumbs.db
 .env
 .aider*
+__pycache__/
+*.sqlite3
+*.db
+instance/
+dist/
+build/
+.pytest_cache/
+htmlcov/
+*.egg-info/
+.eggs/
+.mypy_cache/
+.ruff_cache/
