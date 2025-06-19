@@ -27,11 +27,16 @@ Prompt Enhancer is an AI-driven system designed to transform user-provided topic
 - Web Framework (e.g., Flask or FastAPI): Powers the web interface.
 
 ## Installation
+**Note:** These installation steps are primarily designed for Linux/Unix-like operating systems.
+
 1. Clone the repository:
    git clone https://github.com/adamjen/Prompt_Maker.git
 2. Change into the project directory:
    cd prompt-enhancer
-3. Install dependencies:
+3. Create a Python 3.11 virtual environment and activate it:
+   python3.11 -m venv venv
+   source venv/bin/activate
+4. Install dependencies:
    pip install -r requirements.txt
 
 Note: Ensure your system meets the hardware requirements for LMStudio (at least 12GB VRAM).
