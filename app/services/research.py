@@ -58,45 +58,17 @@ class ResearchService:
         
         return results
         
-    def aggregate_research(self, query: str) -> Dict[str, Any]:
-        """Aggregate research from multiple sources"""
+    def aggregate_research(self, query: str) -> str:
+        """Aggregate research from multiple sources and return a text summary"""
         web_results = self.search_web(query)
         arxiv_results = self.search_arxiv(query)
         scholar_results = self.search_semantic_scholar(query)
-        
-        return {
-            "web_results": web_results,
-            "arxiv_papers": arxiv_results,
-            "semantic_scholar_papers": scholar_results
-        }
-class EXASearchTool:
-    """Tool for performing academic research searches"""
-    
-    def __init__(self):
-        self.research_service = ResearchService()
-        
-    def search(self, search_query: str) -> Dict[str, Any]:
-        """Perform a comprehensive academic search"""
-        try:
-            # Validate the search query
-            if not self._validate_query(search_query):
-                raise ValueError("Invalid search query")
-                
-            # Perform the search
-            return self.research_service.aggregate_research(search_query)
-            
-        except Exception as e:
-            return self._handle_api_error(str(e))
-            
-    def _validate_query(self, query: str) -> bool:
-        """Validate the search query"""
-        if not query or len(query) < 3:
-            return False
-        return True
-            
-    def _handle_api_error(self, error: str) -> Dict[str, str]:
-        """Handle API errors"""
-        return {
-            "error": error,
-            "message": "Failed to perform search. Please try again."
-        }
+        # Extract relevant information from each source
+        web_summary = "\n".join([f"{result['title']}: {result['snippet']} ({result['url']})" for result in web_results])
+        arxiv_summary = "\n".join([f"{paper['title']} by {', '.join(paper['authors'])}: {paper['summary']} ({paper['url']})" for paper in arxiv_results])
+        scholar_summary = "\n".join([f"{paper['title']} by {', '.join(paper['authors'])}: {paper['abstract']} ({paper['url']})" for paper in scholar_results])
+
+        # Combine all summaries into a single text string
+        final_text = f"Web Search Results:\n{web_summary}\n\nArXiv Papers:\n{arxiv_summary}\n\nSemantic Scholar Papers:\n{scholar_summary}"
+
+        return final_text
