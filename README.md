@@ -10,7 +10,7 @@
 - [License](#license)
 
 ## Overview
-Prompt Enhancer is an AI-driven system designed to transform user-provided topics into detailed technical research documents. It leverages an orchestration framework (CrewAI) along with specialized agents that utilize Pydantic for data validation and LMStudio for high-quality language model processing (running on local hardware with 16GB VRAM). A simple web interface allows users to submit prompts and view the multi-step enhancement process in action.
+Prompt Enhancer is an AI-driven system designed to transform user-provided topics into detailed technical research documents. It leverages an orchestration framework (CrewAI) along with specialized agents that utilize Pydantic for data validation and LMStudio for high-quality language model processing (running on local hardware with 12GB VRAM or less). A simple web interface allows users to submit prompts and view the multi-step enhancement process in action.
 
 ## Features
 - Modular architecture: Uses an orchestrator to manage multiple processing steps.
@@ -20,7 +20,7 @@ Prompt Enhancer is an AI-driven system designed to transform user-provided topic
 - Web interface: Provides an easy-to-use front end for submitting prompts and visualizing the processing workflow.
 
 ## Tech Stack
-- Python 3.x: Main programming language.
+- Python 3.11: Main programming language.
 - CrewAI: Orchestrates specialized AI agents.
 - Pydantic: Validates input/output data structures.
 - LMStudio: Powers local model execution (requires 16GB VRAM).
@@ -28,22 +28,25 @@ Prompt Enhancer is an AI-driven system designed to transform user-provided topic
 
 ## Installation
 1. Clone the repository:
-   git clone <repository_url>
+   git clone https://github.com/adamjen/Prompt_Maker.git
 2. Change into the project directory:
    cd prompt-enhancer
 3. Install dependencies:
    pip install -r requirements.txt
 
-Note: Ensure your system meets the hardware requirements for LMStudio (at least 16GB VRAM).
+Note: Ensure your system meets the hardware requirements for LMStudio (at least 12GB VRAM).
 
 ## Running the Application
-To start the web interface and begin processing prompts, run:
+
+To run this project, you will need to have LMStudio installed and running. Ensure you have downloaded and are using the `unsloth/qwen3-8b` model within LMStudio.
+
+Once LMStudio is set up with the specified model, you can start the application by running the `startup.sh` script:
 
 ```bash
-python app.py
+./startup.sh
 ```
 
-This will launch the application on [default port] by default. Use the provided form to submit topics or prompts.
+This script will activate the virtual environment and launch the application. The web interface will typically be available on `http://localhost:8000` or a similar port. Use the provided form to submit topics or prompts.
 
 ## Contributing
 Contributions are welcome! Please follow these steps:
