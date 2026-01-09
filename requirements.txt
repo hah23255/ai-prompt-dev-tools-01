@@ -148,7 +148,7 @@ pydantic-settings==2.9.1
 pydantic_core==2.33.2
 Pygments==2.19.1
 PyJWT==2.10.1
-pypdf==5.4.0
+pypdf==6.6.0
 pypdfium2==4.30.1
 PyPika==0.48.9
 pyproject_hooks==1.2.0
