@@ -136,7 +136,7 @@ portalocker==2.10.1
 posthog==3.25.0
 prompt_toolkit==3.0.51
 propcache==0.3.1
-protobuf==5.29.4
+protobuf==7.34.0rc1
 ptyprocess==0.7.0
 pure_eval==0.2.3
 pyarrow==20.0.0
