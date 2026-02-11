@@ -130,7 +130,7 @@ parso==0.8.4
 pdfminer.six==20250327
 pdfplumber==0.11.6
 pexpect==4.9.0
-pillow==11.2.1
+pillow==12.1.1
 pluggy==1.5.0
 portalocker==2.10.1
 posthog==3.25.0
